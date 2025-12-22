@@ -20,3 +20,6 @@ env/
 *.pt
 *.pth
 *.ckpt
+
+# Data files
+data/
