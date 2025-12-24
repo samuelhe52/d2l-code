@@ -24,7 +24,7 @@ if __name__ == "__main__":
     num_outputs = 10
     model = MNISTSoftmax(num_inputs, num_outputs)
     train_loader = get_dataloader(batch_size, data_root='data')
-    test_loader = get_dataloader(batch_size, train=False, data_root='data')
+    val_loader = get_dataloader(batch_size, train=False, data_root='data')
 
     logger = TrainingLogger(
         log_path='logs/mnist_softmax_experiment.json',
@@ -35,8 +35,8 @@ if __name__ == "__main__":
         }
     )
     
-    train(model, train_loader, num_epochs, lr,
-          test_dataloader=test_loader, logger=logger)
+        train(model, train_loader, num_epochs, lr,
+            val_dataloader=val_loader, logger=logger)
     
     logger.summary()
     # Persist log to disk

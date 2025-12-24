@@ -19,34 +19,34 @@ class TrainingLogger:
         self.start_time = datetime.now()
         self.history = {
             'train_loss': [],
-            'test_loss': [],
+            'val_loss': [],
             'train_acc': [],
-            'test_acc': [],
+            'val_acc': [],
         }
         self.metadata = {
             'timestamp': self.start_time.isoformat(),
             'hparams': self.hparams,
         }
     
-    def log_epoch(self, epoch, train_loss=None, test_loss=None, train_acc=None, test_acc=None, **kwargs):
+    def log_epoch(self, epoch, train_loss=None, val_loss=None, train_acc=None, val_acc=None, **kwargs):
         """Log metrics for a single epoch.
         
         Args:
             epoch: Current epoch number (0-indexed)
             train_loss: Average training loss for the epoch
-            test_loss: Average test loss for the epoch
+            val_loss: Average validation loss for the epoch
             train_acc: Average training accuracy for the epoch
-            test_acc: Test accuracy after the epoch
+            val_acc: Validation accuracy after the epoch
             **kwargs: Additional metrics to log
         """
         if train_loss is not None:
             self.history['train_loss'].append(train_loss)
-        if test_loss is not None:
-            self.history['test_loss'].append(test_loss)
+        if val_loss is not None:
+            self.history['val_loss'].append(val_loss)
         if train_acc is not None:
             self.history['train_acc'].append(train_acc)
-        if test_acc is not None:
-            self.history['test_acc'].append(test_acc)
+        if val_acc is not None:
+            self.history['val_acc'].append(val_acc)
         
         # Handle additional custom metrics
         for key, value in kwargs.items():
@@ -100,10 +100,10 @@ class TrainingLogger:
             print(f'Hyperparameters: {self.hparams}')
         if self.history['train_loss']:
             print(f'Final train loss: {self.history["train_loss"][-1]:.4f}')
-        if self.history['test_loss']:
-            print(f'Final test loss:  {self.history["test_loss"][-1]:.4f}')
+        if self.history['val_loss']:
+            print(f'Final val loss:   {self.history["val_loss"][-1]:.4f}')
         if self.history['train_acc']:
             print(f'Final train acc:  {self.history["train_acc"][-1]:.2%}')
-        if self.history['test_acc']:
-            print(f'Final test acc:   {self.history["test_acc"][-1]:.2%}')
+        if self.history['val_acc']:
+            print(f'Final val acc:    {self.history["val_acc"][-1]:.2%}')
         print(f'{"="*50}\n')

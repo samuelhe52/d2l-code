@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from utils import TrainingLogger
-from utils.classfication import train, get_dataloader, test
+from utils.classfication import train, get_dataloader
 
 
 class MLP(nn.Module):
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     
     model = MLP(**hparams)
     dataloader = get_dataloader(batch_size, data_root='data/')
-    test_dataloader = get_dataloader(batch_size, train=False, data_root='data/')
+    val_dataloader = get_dataloader(batch_size, train=False, data_root='data/')
     optimizer = torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
     
     # Set up logger with all hyperparameters
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     )
     
     train(model, dataloader, num_epochs, lr, 
-          optimizer=optimizer, logger=logger, test_dataloader=test_dataloader)
+          optimizer=optimizer, logger=logger, val_dataloader=val_dataloader)
     
     logger.summary()
     logger.save()

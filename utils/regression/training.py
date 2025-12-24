@@ -8,7 +8,7 @@ from ..io import save_model
 
 def train(model, dataloader, num_epochs, lr,
           loss_fn=None, optimizer=None, save_path=None, 
-          logger=None, test_dataloader=None):
+          print_epoch=True, logger=None, val_dataloader=None):
     """Train a regression model.
     
     Args:
@@ -19,8 +19,9 @@ def train(model, dataloader, num_epochs, lr,
         loss_fn: Loss function (default: MSELoss)
         optimizer: Optimizer (default: SGD with specified lr)
         save_path: Path to save model parameters after training (default: None)
+        print_epoch: Whether to print loss after each epoch (default: True)
         logger: TrainingLogger instance for logging metrics (default: None)
-        test_dataloader: DataLoader for test data to evaluate after each epoch (default: None)
+        val_dataloader: DataLoader for validation data to evaluate after each epoch (default: None)
     """
     if loss_fn is None:
         loss_fn = nn.MSELoss()
@@ -43,34 +44,36 @@ def train(model, dataloader, num_epochs, lr,
         
         avg_loss = sum(losses) / len(losses)
         
-        # Evaluate on test set if provided
-        test_loss = None
-        if test_dataloader is not None:
-            test_loss = test(model, loss_fn, test_dataloader)
-            epoch_pbar.set_postfix(train=f'{avg_loss:.4f}', test=f'{test_loss:.4f}')
-            tqdm.write(f'Epoch {epoch + 1}/{num_epochs} — Loss: {avg_loss:.4f}, '
-                       f'Test Loss: {test_loss:.4f}')
+        # Evaluate on validation set if provided
+        val_loss = None
+        if val_dataloader is not None:
+            val_loss = validate(model, loss_fn, val_dataloader)
+            epoch_pbar.set_postfix(train=f'{avg_loss:.4f}', val=f'{val_loss:.4f}')
+            if print_epoch:
+                tqdm.write(f'Epoch {epoch + 1}/{num_epochs} — Loss: {avg_loss:.4f}, '
+                        f'Val Loss: {val_loss:.4f}')
         else:
             epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}')
-            tqdm.write(f'Epoch {epoch + 1}/{num_epochs} — Loss: {avg_loss:.4f}')
+            if print_epoch:
+                tqdm.write(f'Epoch {epoch + 1}/{num_epochs} — Loss: {avg_loss:.4f}')
         
         if logger is not None:
-            logger.log_epoch(epoch, train_loss=avg_loss, test_loss=test_loss)
+            logger.log_epoch(epoch, train_loss=avg_loss, val_loss=val_loss)
     
     if save_path is not None:
         save_model(model, save_path)
 
 
-def test(model, loss_fn, dataloader):
-    """Evaluate the model on a test dataset.
+def validate(model, loss_fn, dataloader):
+    """Evaluate the model on a validation dataset.
     
     Args:
         model: PyTorch model to evaluate
         loss_fn: Loss function to use for evaluation
-        dataloader: DataLoader for test data
+        dataloader: DataLoader for validation data
         
     Returns:
-        Average loss over the test dataset.
+        Average loss over the validation dataset.
     """
     model.eval()
     losses = []

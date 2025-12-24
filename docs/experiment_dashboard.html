@@ -161,10 +161,10 @@
       <div class="charts">
         <div class="card chart-card" id="lossCard">
           <div class="actions" style="margin-bottom:8px;">
-            <strong>Loss (Train/Test)</strong>
+            <strong>Loss (Train/Val)</strong>
             <div class="actions" style="gap:8px;">
               <button class="toggle active" id="trainLossToggle">train</button>
-              <button class="toggle active" id="testLossToggle">test</button>
+              <button class="toggle active" id="valLossToggle">val</button>
               <button class="ghost small" id="expandLoss" title="Expand/Collapse">+</button>
             </div>
           </div>
@@ -173,10 +173,10 @@
         </div>
         <div class="card chart-card" id="accCard">
           <div class="actions" style="margin-bottom:8px;">
-            <strong>Accuracy (Train/Test)</strong>
+            <strong>Accuracy (Train/Val)</strong>
             <div class="actions" style="gap:8px;">
               <button class="toggle active" id="trainAccToggle">train</button>
-              <button class="toggle active" id="testAccToggle">test</button>
+              <button class="toggle active" id="valAccToggle">val</button>
               <button class="ghost small" id="expandAcc" title="Expand/Collapse">+</button>
             </div>
           </div>
@@ -204,9 +204,9 @@
       selected: new Set(),
       charts: { loss: null, acc: null },
       showTrainLoss: true,
-      showTestLoss: true,
+      showValLoss: true,
       showTrainAcc: true,
-      showTestAcc: true,
+      showValAcc: true,
       expandLoss: false,
       expandAcc: false,
     };
@@ -232,9 +232,9 @@
       accInfo: document.getElementById('accInfo'),
       diffCount: document.getElementById('diffCount'),
       trainLossToggle: document.getElementById('trainLossToggle'),
-      testLossToggle: document.getElementById('testLossToggle'),
+      valLossToggle: document.getElementById('valLossToggle'),
       trainAccToggle: document.getElementById('trainAccToggle'),
-      testAccToggle: document.getElementById('testAccToggle'),
+      valAccToggle: document.getElementById('valAccToggle'),
       expandLoss: document.getElementById('expandLoss'),
       expandAcc: document.getElementById('expandAcc'),
     };
@@ -360,11 +360,11 @@
             pointHitRadius: 10,
           });
         }
-        if (state.showTestLoss) {
-          const testSeries = exp.history?.test_loss || [];
+        if (state.showValLoss) {
+          const valSeries = exp.history?.val_loss || [];
           datasets.push({
-            label: `Test – ${exp.timestamp}`,
-            data: testSeries,
+            label: `Val – ${exp.timestamp}`,
+            data: valSeries,
             borderColor: colorFor(idx, 5),
             backgroundColor: colorFor(idx, 5),
             borderDash: [6, 4],
@@ -395,10 +395,10 @@
             pointHitRadius: 10,
           });
         }
-        if (state.showTestAcc) {
+        if (state.showValAcc) {
           datasets.push({
-            label: `Test – ${exp.timestamp}`,
-            data: exp.history?.test_acc || [],
+            label: `Val – ${exp.timestamp}`,
+            data: exp.history?.val_acc || [],
             borderColor: colorFor(idx, 5),
             backgroundColor: colorFor(idx, 5),
             borderDash: [6, 4],
@@ -442,7 +442,7 @@
       if (!lossData.length) {
         els.lossInfo.textContent = 'No series enabled';
         if (state.charts.loss) { state.charts.loss.destroy(); state.charts.loss = null; }
-        clearCanvasWithMessage(els.lossChart, 'No series enabled (toggle train/test)');
+        clearCanvasWithMessage(els.lossChart, 'No series enabled (toggle train/val)');
         return;
       }
       const hasData = lossData.some((d) => (d.data || []).length);
@@ -475,7 +475,7 @@
       if (!accData.length) {
         els.accInfo.textContent = 'No series enabled';
         if (state.charts.acc) { state.charts.acc.destroy(); state.charts.acc = null; }
-        clearCanvasWithMessage(els.accChart, 'No series enabled (toggle train/test)');
+        clearCanvasWithMessage(els.accChart, 'No series enabled (toggle train/val)');
         return;
       }
       const hasData = accData.some((d) => (d.data || []).length);
@@ -550,9 +550,9 @@
         el.classList.toggle('active', active);
       };
       apply(els.trainLossToggle, state.showTrainLoss);
-      apply(els.testLossToggle, state.showTestLoss);
+      apply(els.valLossToggle, state.showValLoss);
       apply(els.trainAccToggle, state.showTrainAcc);
-      apply(els.testAccToggle, state.showTestAcc);
+      apply(els.valAccToggle, state.showValAcc);
     }
 
     function refreshVisuals() {
@@ -596,9 +596,9 @@
       });
       els.deleteSelected.addEventListener('click', () => handleDelete(Array.from(state.selected)));
       els.trainLossToggle?.addEventListener('click', () => { state.showTrainLoss = !state.showTrainLoss; syncToggles(); refreshVisuals(); });
-      els.testLossToggle?.addEventListener('click', () => { state.showTestLoss = !state.showTestLoss; syncToggles(); refreshVisuals(); });
+      els.valLossToggle?.addEventListener('click', () => { state.showValLoss = !state.showValLoss; syncToggles(); refreshVisuals(); });
       els.trainAccToggle?.addEventListener('click', () => { state.showTrainAcc = !state.showTrainAcc; syncToggles(); refreshVisuals(); });
-      els.testAccToggle?.addEventListener('click', () => { state.showTestAcc = !state.showTestAcc; syncToggles(); refreshVisuals(); });
+      els.valAccToggle?.addEventListener('click', () => { state.showValAcc = !state.showValAcc; syncToggles(); refreshVisuals(); });
       els.expandLoss?.addEventListener('click', () => { state.expandLoss = !state.expandLoss; applyExpandStates(); });
       els.expandAcc?.addEventListener('click', () => { state.expandAcc = !state.expandAcc; applyExpandStates(); });
     }

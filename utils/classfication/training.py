@@ -22,7 +22,7 @@ def accuracy(y_hat, y):
 
 def train(model, dataloader, num_epochs, lr,
           loss_fn=None, optimizer=None, save_path=None, 
-          logger=None, test_dataloader=None):
+          logger=None, val_dataloader=None):
     """Train a classification model.
     
     Args:
@@ -34,7 +34,7 @@ def train(model, dataloader, num_epochs, lr,
         optimizer: Optimizer (default: SGD with specified lr)
         save_path: Path to save model parameters after training (default: None)
         logger: TrainingLogger instance for logging metrics (default: None)
-        test_dataloader: DataLoader for test data to evaluate after each epoch (default: None)
+        val_dataloader: DataLoader for validation data to evaluate after each epoch (default: None)
     """
     if loss_fn is None:
         loss_fn = nn.CrossEntropyLoss()
@@ -59,33 +59,33 @@ def train(model, dataloader, num_epochs, lr,
         avg_loss = sum(losses) / len(losses)
         avg_acc = sum(accuracies) / len(accuracies)
         
-        # Evaluate on test set if provided
-        test_acc = None
-        if test_dataloader is not None:
-            test_acc = test(model, test_dataloader)
-            epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', train=f'{avg_acc:.2%}', test=f'{test_acc:.2%}')
+        # Evaluate on validation set if provided
+        val_acc = None
+        if val_dataloader is not None:
+            val_acc = validate(model, val_dataloader)
+            epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', train=f'{avg_acc:.2%}', val=f'{val_acc:.2%}')
             tqdm.write(f'Epoch {epoch + 1}/{num_epochs} — Loss: {avg_loss:.4f}, '
-                       f'Train: {avg_acc:.2%}, Test: {test_acc:.2%}')
+                       f'Train: {avg_acc:.2%}, Val: {val_acc:.2%}')
         else:
             epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', acc=f'{avg_acc:.2%}')
             tqdm.write(f'Epoch {epoch + 1}/{num_epochs} — Loss: {avg_loss:.4f}, Acc: {avg_acc:.2%}')
         
         if logger is not None:
-            logger.log_epoch(epoch, train_loss=avg_loss, train_acc=avg_acc, test_acc=test_acc)
+            logger.log_epoch(epoch, train_loss=avg_loss, train_acc=avg_acc, val_acc=val_acc)
     
     if save_path is not None:
         save_model(model, save_path)
 
 
-def test(model, dataloader):
-    """Evaluate the model on a test dataset.
+def validate(model, dataloader):
+    """Evaluate the model on a validation dataset.
     
     Args:
         model: PyTorch model to evaluate
-        dataloader: DataLoader for test data
+        dataloader: DataLoader for validation data
         
     Returns:
-        Test accuracy as a float between 0 and 1
+        Validation accuracy as a float between 0 and 1
     """
     model.eval()
     accuracies = []

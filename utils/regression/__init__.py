@@ -1,5 +1,5 @@
-"""Classification utilities."""
+"""Regression utilities."""
 
-from .training import train, test
+from .training import train, validate
 
-__all__ = ['train', 'test', 'accuracy']
+__all__ = ['train', 'validate']
