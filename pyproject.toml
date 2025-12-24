@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "d2l-code"
+version = "0.0.0"
+description = "Local utilities for d2l-code examples"
+requires-python = ">=3.9"
+dependencies = []
+
+[tool.setuptools]
+packages = ["utils"]

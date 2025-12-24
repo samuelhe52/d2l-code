@@ -23,3 +23,6 @@ env/
 
 # Data files
 data/
+
+# Editable install metadata
+*.egg-info/
