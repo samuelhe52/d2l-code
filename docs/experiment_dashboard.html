@@ -52,6 +52,8 @@
       padding: 16px;
       box-shadow: var(--glow);
     }
+    .chart-card { position: relative; }
+    .chart-card.expanded { grid-column: 1 / -1; }
     .stack { display: flex; flex-direction: column; gap: 12px; }
     label { font-size: 13px; color: var(--muted); }
     select, button, input[type="checkbox"] { accent-color: var(--accent); }
@@ -65,10 +67,24 @@
       font-weight: 600;
       cursor: pointer;
     }
+    button.small { width: auto; padding: 6px 10px; font-size: 12px; }
     button.primary { background: linear-gradient(120deg, #4fb3ff, #6ee7b7); color: #0d1b2a; border: none; }
     button.ghost { background: transparent; border: 1px dashed var(--border); color: #dce6f3; }
     button.danger { background: rgba(255, 107, 107, 0.12); color: var(--danger); border-color: rgba(255, 107, 107, 0.5); }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .toggle {
+      width: auto;
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.05);
+      color: #dce6f3;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .toggle.active { background: rgba(79, 179, 255, 0.16); color: var(--accent); border-color: rgba(79, 179, 255, 0.4); }
     .experiments {
       display: flex;
       flex-direction: column;
@@ -108,6 +124,8 @@
     .pill { padding: 2px 8px; border-radius: 8px; background: rgba(79, 179, 255, 0.12); color: var(--accent); font-size: 12px; }
     .actions { display: flex; gap: 8px; align-items: center; }
     .chip { padding: 4px 8px; border-radius: 8px; background: rgba(110, 231, 183, 0.14); color: var(--success); font-size: 12px; }
+    .meta-row { display: flex; justify-content: flex-end; color: var(--muted); font-size: 12px; margin-top: 6px; }
+    .muted { color: var(--muted); }
     @media (max-width: 900px) {
       .layout { grid-template-columns: 1fr; }
       .experiments { max-height: none; }
@@ -141,19 +159,29 @@
 
     <div class="stack">
       <div class="charts">
-        <div class="card">
+        <div class="card chart-card" id="lossCard">
           <div class="actions" style="margin-bottom:8px;">
-            <strong>Training Loss</strong>
-            <span class="pill" id="lossInfo">0 series</span>
+            <strong>Loss (Train/Test)</strong>
+            <div class="actions" style="gap:8px;">
+              <button class="toggle active" id="trainLossToggle">train</button>
+              <button class="toggle active" id="testLossToggle">test</button>
+              <button class="ghost small" id="expandLoss" title="Expand/Collapse">+</button>
+            </div>
           </div>
           <canvas id="lossChart" height="260"></canvas>
+          <div class="meta-row"><span id="lossInfo">0 series</span></div>
         </div>
-        <div class="card">
+        <div class="card chart-card" id="accCard">
           <div class="actions" style="margin-bottom:8px;">
             <strong>Accuracy (Train/Test)</strong>
-            <span class="pill" id="accInfo">0 series</span>
+            <div class="actions" style="gap:8px;">
+              <button class="toggle active" id="trainAccToggle">train</button>
+              <button class="toggle active" id="testAccToggle">test</button>
+              <button class="ghost small" id="expandAcc" title="Expand/Collapse">+</button>
+            </div>
           </div>
           <canvas id="accChart" height="260"></canvas>
+          <div class="meta-row"><span id="accInfo">0 series</span></div>
         </div>
       </div>
       <div class="card">
@@ -175,6 +203,12 @@
       selectedFile: null,
       selected: new Set(),
       charts: { loss: null, acc: null },
+      showTrainLoss: true,
+      showTestLoss: true,
+      showTrainAcc: true,
+      showTestAcc: true,
+      expandLoss: false,
+      expandAcc: false,
     };
 
     const palette = [
@@ -190,11 +224,19 @@
       deleteSelected: document.getElementById('deleteSelected'),
       lossChart: document.getElementById('lossChart'),
       accChart: document.getElementById('accChart'),
+      lossCard: document.getElementById('lossCard'),
+      accCard: document.getElementById('accCard'),
       hparamTable: document.getElementById('hparamTable'),
       status: document.getElementById('status'),
       lossInfo: document.getElementById('lossInfo'),
       accInfo: document.getElementById('accInfo'),
       diffCount: document.getElementById('diffCount'),
+      trainLossToggle: document.getElementById('trainLossToggle'),
+      testLossToggle: document.getElementById('testLossToggle'),
+      trainAccToggle: document.getElementById('trainAccToggle'),
+      testAccToggle: document.getElementById('testAccToggle'),
+      expandLoss: document.getElementById('expandLoss'),
+      expandAcc: document.getElementById('expandAcc'),
     };
 
     function setStatus(text, tone = 'default') {
@@ -303,50 +345,84 @@
     }
 
     function buildLossDatasets(selected) {
-      return selected.map((exp, idx) => ({
-        label: `Loss – ${exp.timestamp}`,
-        data: exp.history?.train_loss || [],
-        borderColor: colorFor(idx),
-        backgroundColor: colorFor(idx),
-        tension: 0.2,
-        fill: false,
-        pointRadius: 2,
-        pointHoverRadius: 6,
-        pointHitRadius: 10,
-      }));
+      const datasets = [];
+      selected.forEach((exp, idx) => {
+        if (state.showTrainLoss) {
+          datasets.push({
+            label: `Train – ${exp.timestamp}`,
+            data: exp.history?.train_loss || [],
+            borderColor: colorFor(idx),
+            backgroundColor: colorFor(idx),
+            tension: 0.2,
+            fill: false,
+            pointRadius: 2,
+            pointHoverRadius: 6,
+            pointHitRadius: 10,
+          });
+        }
+        if (state.showTestLoss) {
+          const testSeries = exp.history?.test_loss || [];
+          datasets.push({
+            label: `Test – ${exp.timestamp}`,
+            data: testSeries,
+            borderColor: colorFor(idx, 5),
+            backgroundColor: colorFor(idx, 5),
+            borderDash: [6, 4],
+            tension: 0.2,
+            fill: false,
+            pointRadius: 2,
+            pointHoverRadius: 6,
+            pointHitRadius: 10,
+          });
+        }
+      });
+      return datasets;
     }
 
     function buildAccDatasets(selected) {
       const datasets = [];
       selected.forEach((exp, idx) => {
-        datasets.push({
-          label: `Train – ${exp.timestamp}`,
-          data: exp.history?.train_acc || [],
-          borderColor: colorFor(idx),
-          backgroundColor: colorFor(idx),
-          tension: 0.15,
-          fill: false,
-          pointRadius: 2,
-          pointHoverRadius: 6,
-          pointHitRadius: 10,
-        });
-        datasets.push({
-          label: `Test – ${exp.timestamp}`,
-          data: exp.history?.test_acc || [],
-          borderColor: colorFor(idx, 5),
-          backgroundColor: colorFor(idx, 5),
-          borderDash: [6, 4],
-          tension: 0.15,
-          fill: false,
-          pointRadius: 2,
-          pointHoverRadius: 6,
-          pointHitRadius: 10,
-        });
+        if (state.showTrainAcc) {
+          datasets.push({
+            label: `Train – ${exp.timestamp}`,
+            data: exp.history?.train_acc || [],
+            borderColor: colorFor(idx),
+            backgroundColor: colorFor(idx),
+            tension: 0.15,
+            fill: false,
+            pointRadius: 2,
+            pointHoverRadius: 6,
+            pointHitRadius: 10,
+          });
+        }
+        if (state.showTestAcc) {
+          datasets.push({
+            label: `Test – ${exp.timestamp}`,
+            data: exp.history?.test_acc || [],
+            borderColor: colorFor(idx, 5),
+            backgroundColor: colorFor(idx, 5),
+            borderDash: [6, 4],
+            tension: 0.15,
+            fill: false,
+            pointRadius: 2,
+            pointHoverRadius: 6,
+            pointHitRadius: 10,
+          });
+        }
       });
       return datasets;
     }
 
     function renderCharts(selected) {
+      if (!selected.length) {
+        els.lossInfo.textContent = 'No experiments selected';
+        els.accInfo.textContent = 'No experiments selected';
+        if (state.charts.loss) { state.charts.loss.destroy(); state.charts.loss = null; }
+        if (state.charts.acc) { state.charts.acc.destroy(); state.charts.acc = null; }
+        clearCanvasWithMessage(els.lossChart, 'No experiments selected');
+        clearCanvasWithMessage(els.accChart, 'No experiments selected');
+        return;
+      }
       const lossData = buildLossDatasets(selected);
       const accData = buildAccDatasets(selected);
       renderLossChart(lossData);
@@ -363,7 +439,13 @@
 
     function renderLossChart(lossData) {
       const ctx = els.lossChart.getContext('2d');
-      const hasData = lossData.length && lossData.some((d) => (d.data || []).length);
+      if (!lossData.length) {
+        els.lossInfo.textContent = 'No series enabled';
+        if (state.charts.loss) { state.charts.loss.destroy(); state.charts.loss = null; }
+        clearCanvasWithMessage(els.lossChart, 'No series enabled (toggle train/test)');
+        return;
+      }
+      const hasData = lossData.some((d) => (d.data || []).length);
       if (!hasData) {
         els.lossInfo.textContent = 'No loss data';
         if (state.charts.loss) {
@@ -390,7 +472,13 @@
 
     function renderAccChart(accData) {
       const ctx = els.accChart.getContext('2d');
-      const hasData = accData.length && accData.some((d) => (d.data || []).length);
+      if (!accData.length) {
+        els.accInfo.textContent = 'No series enabled';
+        if (state.charts.acc) { state.charts.acc.destroy(); state.charts.acc = null; }
+        clearCanvasWithMessage(els.accChart, 'No series enabled (toggle train/test)');
+        return;
+      }
+      const hasData = accData.some((d) => (d.data || []).length);
       if (!hasData) {
         els.accInfo.textContent = 'No accuracy data';
         if (state.charts.acc) {
@@ -441,10 +529,37 @@
       table.innerHTML = header + body;
     }
 
+    function applyExpandStates() {
+      if (els.lossCard) {
+        els.lossCard.classList.toggle('expanded', state.expandLoss);
+        els.expandLoss.textContent = state.expandLoss ? '-' : '+';
+        els.lossChart.height = state.expandLoss ? 420 : 260;
+        if (state.charts.loss) state.charts.loss.resize();
+      }
+      if (els.accCard) {
+        els.accCard.classList.toggle('expanded', state.expandAcc);
+        els.expandAcc.textContent = state.expandAcc ? '-' : '+';
+        els.accChart.height = state.expandAcc ? 420 : 260;
+        if (state.charts.acc) state.charts.acc.resize();
+      }
+    }
+
+    function syncToggles() {
+      const apply = (el, active) => {
+        if (!el) return;
+        el.classList.toggle('active', active);
+      };
+      apply(els.trainLossToggle, state.showTrainLoss);
+      apply(els.testLossToggle, state.showTestLoss);
+      apply(els.trainAccToggle, state.showTrainAcc);
+      apply(els.testAccToggle, state.showTestAcc);
+    }
+
     function refreshVisuals() {
       const selected = state.experiments.filter((e) => state.selected.has(e.timestamp));
       renderCharts(selected);
       renderHparams(selected);
+      applyExpandStates();
     }
 
     async function handleDelete(timestamps) {
@@ -480,6 +595,12 @@
         refreshVisuals();
       });
       els.deleteSelected.addEventListener('click', () => handleDelete(Array.from(state.selected)));
+      els.trainLossToggle?.addEventListener('click', () => { state.showTrainLoss = !state.showTrainLoss; syncToggles(); refreshVisuals(); });
+      els.testLossToggle?.addEventListener('click', () => { state.showTestLoss = !state.showTestLoss; syncToggles(); refreshVisuals(); });
+      els.trainAccToggle?.addEventListener('click', () => { state.showTrainAcc = !state.showTrainAcc; syncToggles(); refreshVisuals(); });
+      els.testAccToggle?.addEventListener('click', () => { state.showTestAcc = !state.showTestAcc; syncToggles(); refreshVisuals(); });
+      els.expandLoss?.addEventListener('click', () => { state.expandLoss = !state.expandLoss; applyExpandStates(); });
+      els.expandAcc?.addEventListener('click', () => { state.expandAcc = !state.expandAcc; applyExpandStates(); });
     }
 
     async function init() {
@@ -491,6 +612,8 @@
         setStatus('Error loading files', 'error');
         alert('Unable to load files: ' + err.message);
       }
+      syncToggles();
+      applyExpandStates();
     }
 
     init();
