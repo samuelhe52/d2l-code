@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Experiment Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d1b2a;
+      --panel: #14233a;
+      --muted: #94a9c5;
+      --accent: #4fb3ff;
+      --danger: #ff6b6b;
+      --success: #6ee7b7;
+      --border: #243b55;
+      --glow: 0 20px 60px rgba(79, 179, 255, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at 20% 20%, rgba(79, 179, 255, 0.1), transparent 25%),
+                  radial-gradient(circle at 80% 0%, rgba(110, 231, 183, 0.12), transparent 30%),
+                  var(--bg);
+      color: #e8eef5;
+    }
+    header {
+      padding: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: 0.5px;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 16px;
+      padding: 0 24px 24px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: var(--glow);
+    }
+    .stack { display: flex; flex-direction: column; gap: 12px; }
+    label { font-size: 13px; color: var(--muted); }
+    select, button, input[type="checkbox"] { accent-color: var(--accent); }
+    select, button {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0f2033;
+      color: #e8eef5;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.primary { background: linear-gradient(120deg, #4fb3ff, #6ee7b7); color: #0d1b2a; border: none; }
+    button.ghost { background: transparent; border: 1px dashed var(--border); color: #dce6f3; }
+    button.danger { background: rgba(255, 107, 107, 0.12); color: var(--danger); border-color: rgba(255, 107, 107, 0.5); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .experiments {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 520px;
+      overflow: auto;
+    }
+    .experiment-row {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      background: #0f2033;
+    }
+    .experiment-meta { display: flex; flex-direction: column; gap: 4px; }
+    .meta-line { font-size: 13px; color: var(--muted); }
+    .timestamp { font-weight: 600; color: #e8eef5; font-size: 12px; }
+    .charts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    canvas { background: #0f2033; border-radius: 10px; padding: 10px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      font-size: 13px;
+    }
+    th { color: var(--muted); font-weight: 600; }
+    tr.diff td { background: rgba(255, 107, 107, 0.08); }
+    .pill { padding: 2px 8px; border-radius: 8px; background: rgba(79, 179, 255, 0.12); color: var(--accent); font-size: 12px; }
+    .actions { display: flex; gap: 8px; align-items: center; }
+    .chip { padding: 4px 8px; border-radius: 8px; background: rgba(110, 231, 183, 0.14); color: var(--success); font-size: 12px; }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .experiments { max-height: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Experiment Explorer</h1>
+    </div>
+    <div class="chip" id="status">Idle</div>
+  </header>
+
+  <div class="layout">
+    <div class="card stack">
+      <div class="stack">
+        <label for="fileSelect">Log file</label>
+        <select id="fileSelect"></select>
+        <button class="ghost" id="refreshFiles">Refresh log files</button>
+      </div>
+      <div class="stack">
+        <div class="actions">
+          <label style="flex:1">Experiments in file</label>
+          <button class="ghost" id="selectAll">Select all</button>
+        </div>
+        <div class="experiments" id="experimentList"></div>
+        <button class="danger" id="deleteSelected" disabled>Delete selected experiments</button>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div class="charts">
+        <div class="card">
+          <div class="actions" style="margin-bottom:8px;">
+            <strong>Training Loss</strong>
+            <span class="pill" id="lossInfo">0 series</span>
+          </div>
+          <canvas id="lossChart" height="260"></canvas>
+        </div>
+        <div class="card">
+          <div class="actions" style="margin-bottom:8px;">
+            <strong>Accuracy (Train/Test)</strong>
+            <span class="pill" id="accInfo">0 series</span>
+          </div>
+          <canvas id="accChart" height="260"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="actions" style="margin-bottom:10px;">
+          <strong>Hyperparameter Comparison</strong>
+          <span class="pill" id="diffCount">0 differences</span>
+        </div>
+        <div class="tableWrap">
+          <table id="hparamTable"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      files: [],
+      experiments: [],
+      selectedFile: null,
+      selected: new Set(),
+      charts: { loss: null, acc: null },
+    };
+
+    const palette = [
+      '#4fb3ff', '#6ee7b7', '#f9cb80', '#ff7b9c', '#9b8cff', '#7ad0ff',
+      '#8ce99a', '#ffd166', '#ff9f9f', '#9dd6ff'
+    ];
+
+    const els = {
+      fileSelect: document.getElementById('fileSelect'),
+      refreshFiles: document.getElementById('refreshFiles'),
+      experimentList: document.getElementById('experimentList'),
+      selectAll: document.getElementById('selectAll'),
+      deleteSelected: document.getElementById('deleteSelected'),
+      lossChart: document.getElementById('lossChart'),
+      accChart: document.getElementById('accChart'),
+      hparamTable: document.getElementById('hparamTable'),
+      status: document.getElementById('status'),
+      lossInfo: document.getElementById('lossInfo'),
+      accInfo: document.getElementById('accInfo'),
+      diffCount: document.getElementById('diffCount'),
+    };
+
+    function setStatus(text, tone = 'default') {
+      els.status.textContent = text;
+      els.status.style.background = tone === 'error' ? 'rgba(255,107,107,0.16)' : 'rgba(110,231,183,0.14)';
+      els.status.style.color = tone === 'error' ? '#ff6b6b' : '#6ee7b7';
+    }
+
+    async function fetchJSON(url, options = {}) {
+      const res = await fetch(url, options);
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || res.statusText);
+      }
+      return res.json();
+    }
+
+    async function loadFiles() {
+      setStatus('Loading files...');
+      const data = await fetchJSON('/api/log-files');
+      state.files = data.files;
+      renderFileOptions();
+      setStatus('Files loaded');
+      if (state.files.length && !state.selectedFile) {
+        selectFile(state.files[0]);
+      }
+    }
+
+    function renderFileOptions() {
+      els.fileSelect.innerHTML = '';
+      state.files.forEach((file) => {
+        const opt = document.createElement('option');
+        opt.value = file;
+        opt.textContent = file;
+        if (file === state.selectedFile) opt.selected = true;
+        els.fileSelect.appendChild(opt);
+      });
+      if (!state.files.length) {
+        const opt = document.createElement('option');
+        opt.textContent = 'No log files found';
+        els.fileSelect.appendChild(opt);
+      }
+    }
+
+    async function selectFile(fileName) {
+      if (!fileName) return;
+      state.selectedFile = fileName;
+      setStatus(`Loading ${fileName} ...`);
+      const data = await fetchJSON(`/api/experiments?file=${encodeURIComponent(fileName)}`);
+      state.experiments = data.experiments || [];
+      state.selected = new Set(state.experiments.map((e) => e.timestamp));
+      renderExperimentList();
+      refreshVisuals();
+      setStatus(`${state.experiments.length} experiments loaded`);
+    }
+
+    function renderExperimentList() {
+      els.experimentList.innerHTML = '';
+      const formatter = new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short' });
+      state.experiments.forEach((exp, idx) => {
+        const row = document.createElement('div');
+        row.className = 'experiment-row';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = state.selected.has(exp.timestamp);
+        checkbox.addEventListener('change', () => {
+          checkbox.checked ? state.selected.add(exp.timestamp) : state.selected.delete(exp.timestamp);
+          refreshVisuals();
+          updateDeleteButton();
+        });
+
+        const meta = document.createElement('div');
+        meta.className = 'experiment-meta';
+        const ts = document.createElement('div');
+        ts.className = 'timestamp';
+        ts.textContent = formatter.format(new Date(exp.timestamp));
+        const info = document.createElement('div');
+        info.className = 'meta-line';
+        info.textContent = `lr ${exp.hparams?.lr ?? '—'}, epochs ${exp.hparams?.num_epochs ?? '—'}`;
+        meta.append(ts, info);
+
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.className = 'danger';
+        deleteBtn.addEventListener('click', () => handleDelete([exp.timestamp]));
+        const label = document.createElement('span');
+        label.className = 'pill';
+        label.textContent = `#${idx + 1}`;
+        actions.append(label, deleteBtn);
+
+        row.append(checkbox, meta, actions);
+        els.experimentList.appendChild(row);
+      });
+      updateDeleteButton();
+    }
+
+    function updateDeleteButton() {
+      els.deleteSelected.disabled = state.selected.size === 0;
+    }
+
+    function colorFor(idx, offset = 0) {
+      return palette[(idx + offset) % palette.length];
+    }
+
+    function buildLossDatasets(selected) {
+      return selected.map((exp, idx) => ({
+        label: `Loss – ${exp.timestamp}`,
+        data: exp.history?.train_loss || [],
+        borderColor: colorFor(idx),
+        backgroundColor: colorFor(idx),
+        tension: 0.2,
+        fill: false,
+        pointRadius: 2,
+        pointHoverRadius: 6,
+        pointHitRadius: 10,
+      }));
+    }
+
+    function buildAccDatasets(selected) {
+      const datasets = [];
+      selected.forEach((exp, idx) => {
+        datasets.push({
+          label: `Train – ${exp.timestamp}`,
+          data: exp.history?.train_acc || [],
+          borderColor: colorFor(idx),
+          backgroundColor: colorFor(idx),
+          tension: 0.15,
+          fill: false,
+          pointRadius: 2,
+          pointHoverRadius: 6,
+          pointHitRadius: 10,
+        });
+        datasets.push({
+          label: `Test – ${exp.timestamp}`,
+          data: exp.history?.test_acc || [],
+          borderColor: colorFor(idx, 5),
+          backgroundColor: colorFor(idx, 5),
+          borderDash: [6, 4],
+          tension: 0.15,
+          fill: false,
+          pointRadius: 2,
+          pointHoverRadius: 6,
+          pointHitRadius: 10,
+        });
+      });
+      return datasets;
+    }
+
+    function renderCharts(selected) {
+      const lossData = buildLossDatasets(selected);
+      const accData = buildAccDatasets(selected);
+      renderLossChart(lossData);
+      renderAccChart(accData);
+    }
+
+    function clearCanvasWithMessage(canvas, message) {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#94a9c5';
+      ctx.font = '12px Space Grotesk, sans-serif';
+      ctx.fillText(message, 12, 20);
+    }
+
+    function renderLossChart(lossData) {
+      const ctx = els.lossChart.getContext('2d');
+      const hasData = lossData.length && lossData.some((d) => (d.data || []).length);
+      if (!hasData) {
+        els.lossInfo.textContent = 'No loss data';
+        if (state.charts.loss) {
+          state.charts.loss.destroy();
+          state.charts.loss = null;
+        }
+        clearCanvasWithMessage(els.lossChart, 'No loss data');
+        return;
+      }
+
+      els.lossInfo.textContent = `${lossData.length} series`;
+      const lossCfg = {
+        type: 'line',
+        data: { labels: lossData[0]?.data.map((_, i) => `Epoch ${i + 1}`) || [], datasets: lossData },
+        options: {
+          interaction: { mode: 'nearest', intersect: false },
+          scales: { y: { beginAtZero: true } },
+          plugins: { legend: { display: true, position: 'bottom' } },
+        },
+      };
+      if (state.charts.loss) state.charts.loss.destroy();
+      state.charts.loss = new Chart(ctx, lossCfg);
+    }
+
+    function renderAccChart(accData) {
+      const ctx = els.accChart.getContext('2d');
+      const hasData = accData.length && accData.some((d) => (d.data || []).length);
+      if (!hasData) {
+        els.accInfo.textContent = 'No accuracy data';
+        if (state.charts.acc) {
+          state.charts.acc.destroy();
+          state.charts.acc = null;
+        }
+        clearCanvasWithMessage(els.accChart, 'No accuracy data');
+        return;
+      }
+
+      els.accInfo.textContent = `${accData.length} series`;
+      const accCfg = {
+        type: 'line',
+        data: { labels: accData[0]?.data.map((_, i) => `Epoch ${i + 1}`) || [], datasets: accData },
+        options: {
+          interaction: { mode: 'nearest', intersect: false },
+          scales: { y: { beginAtZero: true, max: 1 } },
+          plugins: { legend: { display: true, position: 'bottom' } },
+        },
+      };
+      if (state.charts.acc) state.charts.acc.destroy();
+      state.charts.acc = new Chart(ctx, accCfg);
+    }
+
+    function renderHparams(selected) {
+      const table = els.hparamTable;
+      if (!selected.length) {
+        table.innerHTML = '<tr><td>No experiments selected.</td></tr>';
+        els.diffCount.textContent = '0 differences';
+        return;
+      }
+      const keys = new Set();
+      selected.forEach((exp) => Object.keys(exp.hparams || {}).forEach((k) => keys.add(k)));
+      const rows = Array.from(keys).map((key) => {
+        const vals = selected.map((exp) => exp.hparams?.[key] ?? '—');
+        const differs = vals.some((v) => v !== vals[0]);
+        return { key, vals, differs };
+      });
+      rows.sort((a, b) => Number(b.differs) - Number(a.differs) || a.key.localeCompare(b.key));
+      const diffTotal = rows.filter((r) => r.differs).length;
+      els.diffCount.textContent = `${diffTotal} differences`;
+
+      const header = `<tr><th>Parameter</th>${selected.map((exp, i) => `<th>Exp ${i + 1}</th>`).join('')}</tr>`;
+      const body = rows.map((row) => {
+        const cells = row.vals.map((v) => `<td>${v}</td>`).join('');
+        return `<tr class="${row.differs ? 'diff' : ''}"><td>${row.key}</td>${cells}</tr>`;
+      }).join('');
+      table.innerHTML = header + body;
+    }
+
+    function refreshVisuals() {
+      const selected = state.experiments.filter((e) => state.selected.has(e.timestamp));
+      renderCharts(selected);
+      renderHparams(selected);
+    }
+
+    async function handleDelete(timestamps) {
+      if (!timestamps.length || !state.selectedFile) return;
+      const message = timestamps.length === 1 ? 'Delete this experiment permanently?' : `Delete ${timestamps.length} experiments permanently?`;
+      if (!confirm(message)) return;
+      setStatus('Deleting...', 'warn');
+      try {
+        await fetchJSON(`/api/experiments?file=${encodeURIComponent(state.selectedFile)}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ timestamps }),
+        });
+        await selectFile(state.selectedFile);
+        setStatus('Deletion complete');
+      } catch (err) {
+        console.error(err);
+        setStatus('Delete failed', 'error');
+        alert('Delete failed: ' + err.message);
+      }
+    }
+
+    function wireEvents() {
+      els.fileSelect.addEventListener('change', (e) => selectFile(e.target.value));
+      els.refreshFiles.addEventListener('click', loadFiles);
+      els.selectAll.addEventListener('click', () => {
+        if (state.selected.size === state.experiments.length) {
+          state.selected.clear();
+        } else {
+          state.experiments.forEach((exp) => state.selected.add(exp.timestamp));
+        }
+        renderExperimentList();
+        refreshVisuals();
+      });
+      els.deleteSelected.addEventListener('click', () => handleDelete(Array.from(state.selected)));
+    }
+
+    async function init() {
+      wireEvents();
+      try {
+        await loadFiles();
+      } catch (err) {
+        console.error(err);
+        setStatus('Error loading files', 'error');
+        alert('Unable to load files: ' + err.message);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -21,7 +21,8 @@ env/
 *.pth
 *.ckpt
 
-# Data files
+# Data/logs
+logs/
 data/
 
 # Editable install metadata

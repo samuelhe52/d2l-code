@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from utils import TrainingLogger
 from utils.classfication import train, get_dataloader, test
 
 
@@ -25,16 +26,37 @@ if __name__ == "__main__":
         'num_outputs': 10,
         'num_hiddens_1': 512,
         'num_hiddens_2': 256,
-        'dropout_1': 0.25,
-        'dropout_2': 0.25
+        'dropout_1': 0.40,
+        'dropout_2': 0.40,
+        # 'dropout_1': 0.00,
+        # 'dropout_2': 0.00,
     }
 
     batch_size = 256
-    num_epochs = 30
-    lr = 0.25
+    num_epochs = 20
+    lr = 0.1
+    # weight_decay = 5e-4
+    weight_decay = 0.0
+    
     model = MLP(**hparams)
-    save_path = 'models/mlp_no_d2l.pt'
     dataloader = get_dataloader(batch_size, data_root='data/')
-    train(model, dataloader, num_epochs, lr, save_path=save_path)
-    test_acc = test(model, dataloader)
-    print(f'Test Accuracy: {test_acc:.4f}')
+    test_dataloader = get_dataloader(batch_size, train=False, data_root='data/')
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
+    
+    # Set up logger with all hyperparameters
+    logger = TrainingLogger(
+        log_path='logs/mlp_experiment.json',
+        hparams={
+            **hparams,
+            'batch_size': batch_size,
+            'num_epochs': num_epochs,
+            'lr': lr,
+            'weight_decay': weight_decay,
+        }
+    )
+    
+    train(model, dataloader, num_epochs, lr, 
+          optimizer=optimizer, logger=logger, test_dataloader=test_dataloader)
+    
+    logger.summary()
+    logger.save()
