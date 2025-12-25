@@ -6,6 +6,8 @@
   <title>Experiment Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
   <style>
     :root {
       --bg: #0d1b2a;
@@ -91,16 +93,41 @@
       gap: 10px;
       max-height: 520px;
       overflow: auto;
+      padding: 6px;
     }
     .experiment-row {
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 10px;
+      padding: 12px 14px 12px 18px;
       display: grid;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: 1fr auto;
       gap: 10px;
       align-items: center;
       background: #0f2033;
+      cursor: pointer;
+      position: relative;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+    }
+    .experiment-row::before {
+      content: '';
+      position: absolute;
+      left: 8px;
+      top: 10px;
+      bottom: 10px;
+      width: 3px;
+      border-radius: 6px;
+      background: var(--border);
+      transition: width 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+    }
+    .experiment-row.selected {
+      border-color: rgba(79, 179, 255, 0.6);
+      background: radial-gradient(circle at 20% 20%, rgba(79, 179, 255, 0.08), transparent 55%), #0f2338;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(79, 179, 255, 0.35);
+    }
+    .experiment-row.selected::before {
+      width: 5px;
+      background: linear-gradient(160deg, #4fb3ff, #6ee7b7);
+      box-shadow: 0 0 12px rgba(79, 179, 255, 0.35);
     }
     .experiment-meta { display: flex; flex-direction: column; gap: 4px; }
     .meta-line { font-size: 13px; color: var(--muted); }
@@ -165,6 +192,7 @@
             <div class="actions" style="gap:8px;">
               <button class="toggle active" id="trainLossToggle">train</button>
               <button class="toggle active" id="valLossToggle">val</button>
+              <button class="ghost small" id="resetLossZoom" title="Reset Zoom">⟲</button>
               <button class="ghost small" id="expandLoss" title="Expand/Collapse">+</button>
             </div>
           </div>
@@ -177,6 +205,7 @@
             <div class="actions" style="gap:8px;">
               <button class="toggle active" id="trainAccToggle">train</button>
               <button class="toggle active" id="valAccToggle">val</button>
+              <button class="ghost small" id="resetAccZoom" title="Reset Zoom">⟲</button>
               <button class="ghost small" id="expandAcc" title="Expand/Collapse">+</button>
             </div>
           </div>
@@ -237,6 +266,8 @@
       valAccToggle: document.getElementById('valAccToggle'),
       expandLoss: document.getElementById('expandLoss'),
       expandAcc: document.getElementById('expandAcc'),
+      resetLossZoom: document.getElementById('resetLossZoom'),
+      resetAccZoom: document.getElementById('resetAccZoom'),
     };
 
     function setStatus(text, tone = 'default') {
@@ -299,15 +330,19 @@
       state.experiments.forEach((exp, idx) => {
         const row = document.createElement('div');
         row.className = 'experiment-row';
+        const isSelected = state.selected.has(exp.timestamp);
+        row.classList.toggle('selected', isSelected);
 
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = state.selected.has(exp.timestamp);
-        checkbox.addEventListener('change', () => {
-          checkbox.checked ? state.selected.add(exp.timestamp) : state.selected.delete(exp.timestamp);
+        const applySelection = (checked) => {
+          if (checked) {
+            state.selected.add(exp.timestamp);
+          } else {
+            state.selected.delete(exp.timestamp);
+          }
+          row.classList.toggle('selected', checked);
           refreshVisuals();
           updateDeleteButton();
-        });
+        };
 
         const meta = document.createElement('div');
         meta.className = 'experiment-meta';
@@ -324,13 +359,21 @@
         const deleteBtn = document.createElement('button');
         deleteBtn.textContent = 'Delete';
         deleteBtn.className = 'danger';
-        deleteBtn.addEventListener('click', () => handleDelete([exp.timestamp]));
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          handleDelete([exp.timestamp]);
+        });
         const label = document.createElement('span');
         label.className = 'pill';
         label.textContent = `#${idx + 1}`;
         actions.append(label, deleteBtn);
 
-        row.append(checkbox, meta, actions);
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('button')) return;
+          applySelection(!state.selected.has(exp.timestamp));
+        });
+
+        row.append(meta, actions);
         els.experimentList.appendChild(row);
       });
       updateDeleteButton();
@@ -342,6 +385,19 @@
 
     function colorFor(idx, offset = 0) {
       return palette[(idx + offset) % palette.length];
+    }
+
+    function normalizeValue(val) {
+      if (val === undefined || val === null) return '—';
+      if (Array.isArray(val)) return JSON.stringify(val);
+      if (typeof val === 'object') {
+        const ordered = Object.keys(val).sort().reduce((acc, key) => {
+          acc[key] = val[key];
+          return acc;
+        }, {});
+        return JSON.stringify(ordered);
+      }
+      return String(val);
     }
 
     function buildLossDatasets(selected) {
@@ -457,13 +513,26 @@
       }
 
       els.lossInfo.textContent = `${lossData.length} series`;
+      const maxEpochs = Math.max(...lossData.map((d) => (d.data || []).length));
+      const labels = Array.from({ length: maxEpochs }, (_, i) => `Epoch ${i + 1}`);
       const lossCfg = {
         type: 'line',
-        data: { labels: lossData[0]?.data.map((_, i) => `Epoch ${i + 1}`) || [], datasets: lossData },
+        data: { labels, datasets: lossData },
         options: {
           interaction: { mode: 'nearest', intersect: false },
           scales: { y: { beginAtZero: true } },
-          plugins: { legend: { display: true, position: 'bottom' } },
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+            zoom: {
+              pan: { enabled: true, mode: 'xy', modifierKey: 'shift' },
+              zoom: {
+                wheel: { enabled: true },
+                pinch: { enabled: true },
+                drag: { enabled: true, backgroundColor: 'rgba(79, 179, 255, 0.15)', borderColor: 'rgba(79, 179, 255, 0.6)', borderWidth: 1 },
+                mode: 'xy',
+              },
+            },
+          },
         },
       };
       if (state.charts.loss) state.charts.loss.destroy();
@@ -490,13 +559,26 @@
       }
 
       els.accInfo.textContent = `${accData.length} series`;
+      const maxEpochs = Math.max(...accData.map((d) => (d.data || []).length));
+      const labels = Array.from({ length: maxEpochs }, (_, i) => `Epoch ${i + 1}`);
       const accCfg = {
         type: 'line',
-        data: { labels: accData[0]?.data.map((_, i) => `Epoch ${i + 1}`) || [], datasets: accData },
+        data: { labels, datasets: accData },
         options: {
           interaction: { mode: 'nearest', intersect: false },
           scales: { y: { beginAtZero: true, max: 1 } },
-          plugins: { legend: { display: true, position: 'bottom' } },
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+            zoom: {
+              pan: { enabled: true, mode: 'xy', modifierKey: 'shift' },
+              zoom: {
+                wheel: { enabled: true },
+                pinch: { enabled: true },
+                drag: { enabled: true, backgroundColor: 'rgba(79, 179, 255, 0.15)', borderColor: 'rgba(79, 179, 255, 0.6)', borderWidth: 1 },
+                mode: 'xy',
+              },
+            },
+          },
         },
       };
       if (state.charts.acc) state.charts.acc.destroy();
@@ -513,7 +595,8 @@
       const keys = new Set();
       selected.forEach((exp) => Object.keys(exp.hparams || {}).forEach((k) => keys.add(k)));
       const rows = Array.from(keys).map((key) => {
-        const vals = selected.map((exp) => exp.hparams?.[key] ?? '—');
+        const rawVals = selected.map((exp) => exp.hparams?.[key]);
+        const vals = rawVals.map((v) => normalizeValue(v));
         const differs = vals.some((v) => v !== vals[0]);
         return { key, vals, differs };
       });
@@ -601,6 +684,8 @@
       els.valAccToggle?.addEventListener('click', () => { state.showValAcc = !state.showValAcc; syncToggles(); refreshVisuals(); });
       els.expandLoss?.addEventListener('click', () => { state.expandLoss = !state.expandLoss; applyExpandStates(); });
       els.expandAcc?.addEventListener('click', () => { state.expandAcc = !state.expandAcc; applyExpandStates(); });
+      els.resetLossZoom?.addEventListener('click', () => { if (state.charts.loss) state.charts.loss.resetZoom(); });
+      els.resetAccZoom?.addEventListener('click', () => { if (state.charts.acc) state.charts.acc.resetZoom(); });
     }
 
     async function init() {

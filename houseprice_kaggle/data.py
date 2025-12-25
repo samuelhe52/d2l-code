@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, TensorDataset, DataLoader
 
 
 class KaggleHouse(Dataset):
@@ -15,11 +15,13 @@ class KaggleHouse(Dataset):
         KaggleHouse: Iterable dataset compatible with torch DataLoader.
     """
 
-    def __init__(self, features, labels=None):
-        self.features = torch.tensor(features.values.astype(float), dtype=torch.float32)
+    def __init__(self, features, labels=None): 
+        self.features = torch.tensor(features.values.astype(np.float32),
+                                     dtype=torch.float32)
         self.labels = None
         if labels is not None:
-            labels_tensor = torch.tensor(labels.values.astype(float), dtype=torch.float32).reshape(-1, 1)
+            labels_tensor = torch.tensor(labels.values.astype(np.float32),
+                                         dtype=torch.float32).reshape(-1, 1)
             self.labels = torch.log(labels_tensor)
 
     def __len__(self):
@@ -82,7 +84,7 @@ def _tensor_dataset(df, label_col='SalePrice'):
     features = torch.tensor(df.drop(columns=[label_col]).values.astype(float), dtype=torch.float32)
     labels = torch.tensor(df[label_col].values.astype(float), dtype=torch.float32).reshape(-1, 1)
     labels = torch.log(labels)
-    return features, labels
+    return TensorDataset(features, labels)
 
 
 def get_dataloader(batch_size, train=True, root='data/HousePrices/', train_df=None, val_df=None):
@@ -103,16 +105,15 @@ def get_dataloader(batch_size, train=True, root='data/HousePrices/', train_df=No
 
     if train_df is not None and val_df is not None:
         data = train_df if train else val_df
-        features, lbls = _tensor_dataset(data)
-        dataset = torch.utils.data.TensorDataset(features, lbls)
+        dataset = _tensor_dataset(data)
         return DataLoader(dataset=dataset, batch_size=batch_size, shuffle=train)
 
     if train:
         dataset = KaggleHouse(train_features, labels)
         return DataLoader(dataset=dataset, batch_size=batch_size, shuffle=True)
-
-    dataset = KaggleHouse(test_features, labels=None)
-    return DataLoader(dataset=dataset, batch_size=batch_size, shuffle=False)
+    else:
+        dataset = KaggleHouse(test_features, labels=None)
+        return DataLoader(dataset=dataset, batch_size=batch_size, shuffle=False)
 
 
 def k_fold_loaders(k, batch_size, root='data/HousePrices/', seed=42, shuffle=True):
@@ -135,8 +136,8 @@ def k_fold_loaders(k, batch_size, root='data/HousePrices/', seed=42, shuffle=Tru
 
     n = len(full)
     idx = np.arange(n)
-    rng = np.random.default_rng(seed)
     if shuffle:
+        rng = np.random.default_rng(seed)
         rng.shuffle(idx)
 
     folds = np.array_split(idx, k)

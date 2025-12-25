@@ -22,7 +22,7 @@ def accuracy(y_hat, y):
 
 def train(model, dataloader, num_epochs, lr,
           loss_fn=None, optimizer=None, save_path=None, 
-          logger=None, val_dataloader=None):
+          verbose=True, logger=None, val_dataloader=None):
     """Train a classification model.
     
     Args:
@@ -33,6 +33,7 @@ def train(model, dataloader, num_epochs, lr,
         loss_fn: Loss function (default: CrossEntropyLoss)
         optimizer: Optimizer (default: SGD with specified lr)
         save_path: Path to save model parameters after training (default: None)
+        verbose: Whether to print loss after each epoch (default: True)
         logger: TrainingLogger instance for logging metrics (default: None)
         val_dataloader: DataLoader for validation data to evaluate after each epoch (default: None)
     """
@@ -64,11 +65,13 @@ def train(model, dataloader, num_epochs, lr,
         if val_dataloader is not None:
             val_acc = validate(model, val_dataloader)
             epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', train=f'{avg_acc:.2%}', val=f'{val_acc:.2%}')
-            tqdm.write(f'Epoch {epoch + 1}/{num_epochs} — Loss: {avg_loss:.4f}, '
-                       f'Train: {avg_acc:.2%}, Val: {val_acc:.2%}')
+            if verbose:
+                tqdm.write(f'Epoch {epoch + 1}/{num_epochs} — Loss: {avg_loss:.4f}, '
+                           f'Train: {avg_acc:.2%}, Val: {val_acc:.2%}')
         else:
             epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', acc=f'{avg_acc:.2%}')
-            tqdm.write(f'Epoch {epoch + 1}/{num_epochs} — Loss: {avg_loss:.4f}, Acc: {avg_acc:.2%}')
+            if verbose:
+                tqdm.write(f'Epoch {epoch + 1}/{num_epochs} — Loss: {avg_loss:.4f}, Acc: {avg_acc:.2%}')
         
         if logger is not None:
             logger.log_epoch(epoch, train_loss=avg_loss, train_acc=avg_acc, val_acc=val_acc)
