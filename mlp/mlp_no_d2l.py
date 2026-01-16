@@ -37,8 +37,16 @@ if __name__ == "__main__":
     lr = 0.1
     # weight_decay = 5e-4
     weight_decay = 0.0
-    
-    model = MLP(**hparams)
+
+    # Select device: prefer CUDA, then MPS (Apple), then CPU
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+
+    model = MLP(**hparams).to(device)
     dataloader = get_dataloader(batch_size, data_root='data/')
     val_dataloader = get_dataloader(batch_size, train=False, data_root='data/')
     optimizer = torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -55,8 +63,9 @@ if __name__ == "__main__":
         }
     )
     
-    train(model, dataloader, num_epochs, lr, 
-          optimizer=optimizer, logger=logger, val_dataloader=val_dataloader)
+    train(model, dataloader, num_epochs, lr,
+        optimizer=optimizer, logger=logger,
+        val_dataloader=val_dataloader, device=device)
     
     logger.summary()
     logger.save()

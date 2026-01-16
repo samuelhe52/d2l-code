@@ -1,0 +1,74 @@
+import torch
+from torch import nn
+from utils import TrainingLogger
+from utils.classfication import train, get_dataloader
+
+class LeNet(nn.Module):
+    def __init__(self, num_classes=10):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Conv2d(1, 6, kernel_size=5, padding=2), nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(6, 16, kernel_size=5), nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Flatten(),
+            nn.Linear(16 * 5 * 5, 120), nn.ReLU(),
+            nn.Linear(120, 84), nn.ReLU(),
+            nn.Linear(84, num_classes)
+        )
+
+    def forward(self, X):
+        return self.net(X)
+
+if __name__ == "__main__":
+    batch_size = 256
+    num_epochs = 20
+    lr = 0.05
+    weight_decay = 0.0
+    
+    # Select device: prefer CUDA, then MPS (Apple), then CPU
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
+        
+    model = LeNet().to(device)
+    dataloader = get_dataloader(batch_size, data_root='data/')
+    val_dataloader = get_dataloader(batch_size, train=False, data_root='data/')
+    optimizer = torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
+    init_fn = torch.nn.init.kaiming_uniform_
+
+    hparams = {
+        'batch_size': batch_size,
+        'num_epochs': num_epochs,
+        'lr': lr,
+        'weight_decay': weight_decay,
+        'init_fn': init_fn.__name__,
+        'pooling': 'MaxPool2d',
+    }
+    
+    # Set up logger with all hyperparameters
+    logger = TrainingLogger(
+        log_path='logs/lenet_experiment.json',
+        hparams=hparams
+    )
+
+    # Initialize model parameters
+    def init_weights(m):
+        if isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
+            init_fn(m.weight)
+            if m.bias is not None:
+                nn.init.zeros_(m.bias)
+                
+    model.apply(init_weights)
+    
+    train(model, dataloader=dataloader, num_epochs=num_epochs,
+          lr=lr, loss_fn=nn.CrossEntropyLoss(),
+          optimizer=optimizer, logger=logger, save_path='models/lenet.pt',
+          val_dataloader=val_dataloader, device=device)
+
+    logger.summary()
+    logger.save()
+    

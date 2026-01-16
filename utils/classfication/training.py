@@ -22,7 +22,8 @@ def accuracy(y_hat, y):
 
 def train(model, dataloader, num_epochs, lr,
           loss_fn=None, optimizer=None, save_path=None, 
-          verbose=True, logger=None, val_dataloader=None):
+          verbose=True, logger=None, val_dataloader=None,
+          device=None):
     """Train a classification model.
     
     Args:
@@ -36,7 +37,16 @@ def train(model, dataloader, num_epochs, lr,
         verbose: Whether to print loss after each epoch (default: True)
         logger: TrainingLogger instance for logging metrics (default: None)
         val_dataloader: DataLoader for validation data to evaluate after each epoch (default: None)
+        device: Torch device to run training on, e.g. torch.device('cuda') (default: None, infers from model or uses CPU)
     """
+    # Infer device if not explicitly provided
+    if device is None:
+        try:
+            device = next(model.parameters()).device
+        except StopIteration:
+            device = torch.device("cpu")
+
+    model.to(device)
     if loss_fn is None:
         loss_fn = nn.CrossEntropyLoss()
     if optimizer is None:
@@ -48,6 +58,8 @@ def train(model, dataloader, num_epochs, lr,
         losses, accuracies = [], []
         batch_pbar = tqdm(dataloader, desc=f'Epoch {epoch + 1}/{num_epochs}', leave=False)
         for X, y in batch_pbar:
+            X = X.to(device)
+            y = y.to(device)
             optimizer.zero_grad()
             y_hat = model(X)
             loss = loss_fn(y_hat, y)
@@ -63,7 +75,7 @@ def train(model, dataloader, num_epochs, lr,
         # Evaluate on validation set if provided
         val_acc = None
         if val_dataloader is not None:
-            val_acc = validate(model, val_dataloader)
+            val_acc = validate(model, val_dataloader, device=device)
             epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', train=f'{avg_acc:.2%}', val=f'{val_acc:.2%}')
             if verbose:
                 tqdm.write(f'Epoch {epoch + 1}/{num_epochs} — Loss: {avg_loss:.4f}, '
@@ -80,20 +92,31 @@ def train(model, dataloader, num_epochs, lr,
         save_model(model, save_path)
 
 
-def validate(model, dataloader):
+def validate(model, dataloader, device=None):
     """Evaluate the model on a validation dataset.
     
     Args:
         model: PyTorch model to evaluate
         dataloader: DataLoader for validation data
+        device: Torch device to run evaluation on (default: None, infers from model or uses CPU)
         
     Returns:
         Validation accuracy as a float between 0 and 1
     """
+    # Infer device if not explicitly provided
+    if device is None:
+        try:
+            device = next(model.parameters()).device
+        except StopIteration:
+            device = torch.device("cpu")
+
+    model.to(device)
     model.eval()
     accuracies = []
     with torch.no_grad():
         for X, y in dataloader:
+            X = X.to(device)
+            y = y.to(device)
             y_hat = model(X)
             accuracies.append(accuracy(y_hat, y))
     return sum(accuracies) / len(accuracies)
