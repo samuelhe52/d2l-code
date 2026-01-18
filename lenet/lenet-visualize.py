@@ -8,7 +8,7 @@ from pathlib import Path
 # We must hack the import path to import LeNet from lenet.py
 import sys
 sys.path.append(str(Path(__file__).resolve().parent))
-from lenet import LeNet
+from lenet import LeNetModern
 
 def visualize_filters(model, layer_index=0):
     """Visualize the filters of a specific convolutional layer."""
@@ -86,7 +86,7 @@ def visualize_activations(model, dataloader, layer_index=0):
     plt.show()
 
 model_path = 'models/lenet.pt'
-model = LeNet()
+model = LeNetModern()
 load_model(model, model_path)
 model.eval()
 dataloader = get_dataloader(batch_size=10, train=False, data_root='data/')
