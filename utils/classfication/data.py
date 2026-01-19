@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 
-def get_dataloader(batch_size, train=True, resize=(28, 28), data_root='./data'):
+def fashion_mnist(batch_size, train=True, resize=(28, 28), data_root='./data'):
     """Download the Fashion-MNIST dataset and load it into memory.
     
     Args:

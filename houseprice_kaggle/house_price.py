@@ -126,6 +126,7 @@ if __name__ == "__main__":
             verbose=False,
             logger=logger if i == len(loaders) - 1 else None, # Log only last fold
             val_dataloader=val_loader,
+            device=torch.device('cpu')
         )
 
         models.append((model, val_loss))

@@ -5,6 +5,7 @@ from torch import nn
 from tqdm import tqdm
 
 from ..io import save_model
+from ..training_config import TrainingConfig, resolve_training_config
 
 
 def accuracy(y_hat, y):
@@ -20,43 +21,58 @@ def accuracy(y_hat, y):
     preds = y_hat.argmax(dim=1)
     return (preds == y).type(torch.float).sum().item() / len(y)
 
-def train(model, dataloader, num_epochs, lr,
+def train(model, dataloader, num_epochs=None, lr=None,
           loss_fn=None, optimizer=None, save_path=None, 
           verbose=True, logger=None, val_dataloader=None,
-          device=None):
+          device=None, config: TrainingConfig | None = None):
     """Train a classification model.
     
     Args:
         model: PyTorch model to train
         dataloader: DataLoader for training data
-        num_epochs: Number of epochs to train
-        lr: Learning rate (default: 0.01)
+        num_epochs: Number of epochs to train. Can be provided via ``config``.
+        lr: Learning rate. Can be provided via ``config``.
         loss_fn: Loss function (default: CrossEntropyLoss)
         optimizer: Optimizer (default: SGD with specified lr)
         save_path: Path to save model parameters after training (default: None)
         verbose: Whether to print loss after each epoch (default: True)
         logger: TrainingLogger instance for logging metrics (default: None)
         val_dataloader: DataLoader for validation data to evaluate after each epoch (default: None)
-        device: Torch device to run training on, e.g. torch.device('cuda') (default: None, infers from model or uses CPU)
+        device: Torch device to run training on, e.g. torch.device('cuda')
+            (default: None, tries cuda, mps, cpu)
+        config: Optional ``TrainingConfig``. Explicit args override matching fields.
     """
+    cfg = resolve_training_config(
+        config,
+        num_epochs=num_epochs,
+        lr=lr,
+        loss_fn=loss_fn,
+        optimizer=optimizer,
+        save_path=save_path,
+        verbose=verbose,
+        logger=logger,
+        device=device,
+    )
+
+    device = cfg.device
     # Infer device if not explicitly provided
     if device is None:
-        try:
-            device = next(model.parameters()).device
-        except StopIteration:
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            device = torch.device("mps")
+        else:
             device = torch.device("cpu")
 
     model.to(device)
-    if loss_fn is None:
-        loss_fn = nn.CrossEntropyLoss()
-    if optimizer is None:
-        optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+    loss_fn = cfg.loss_fn or nn.CrossEntropyLoss()
+    optimizer = cfg.optimizer or torch.optim.SGD(model.parameters(), lr=cfg.lr)
     
-    epoch_pbar = tqdm(range(num_epochs), desc='Training', unit='epoch')
+    epoch_pbar = tqdm(range(cfg.num_epochs), desc='Training', unit='epoch')
     for epoch in epoch_pbar:
         model.train() # Ensure model is in training mode
         losses, accuracies = [], []
-        batch_pbar = tqdm(dataloader, desc=f'Epoch {epoch + 1}/{num_epochs}', leave=False)
+        batch_pbar = tqdm(dataloader, desc=f'Epoch {epoch + 1}/{cfg.num_epochs}', leave=False)
         for X, y in batch_pbar:
             X = X.to(device)
             y = y.to(device)
@@ -77,19 +93,19 @@ def train(model, dataloader, num_epochs, lr,
         if val_dataloader is not None:
             val_acc = validate(model, val_dataloader, device=device)
             epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', train=f'{avg_acc:.2%}', val=f'{val_acc:.2%}')
-            if verbose:
-                tqdm.write(f'Epoch {epoch + 1}/{num_epochs} — Loss: {avg_loss:.4f}, '
+            if cfg.verbose:
+                tqdm.write(f'Epoch {epoch + 1}/{cfg.num_epochs} — Loss: {avg_loss:.4f}, '
                            f'Train: {avg_acc:.2%}, Val: {val_acc:.2%}')
         else:
             epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', acc=f'{avg_acc:.2%}')
-            if verbose:
-                tqdm.write(f'Epoch {epoch + 1}/{num_epochs} — Loss: {avg_loss:.4f}, Acc: {avg_acc:.2%}')
+            if cfg.verbose:
+                tqdm.write(f'Epoch {epoch + 1}/{cfg.num_epochs} — Loss: {avg_loss:.4f}, Acc: {avg_acc:.2%}')
         
-        if logger is not None:
-            logger.log_epoch(epoch, train_loss=avg_loss, train_acc=avg_acc, val_acc=val_acc)
+        if cfg.logger is not None:
+            cfg.logger.log_epoch(epoch, train_loss=avg_loss, train_acc=avg_acc, val_acc=val_acc)
     
-    if save_path is not None:
-        save_model(model, save_path)
+    if cfg.save_path is not None:
+        save_model(model, cfg.save_path)
 
 
 def validate(model, dataloader, device=None):
@@ -98,16 +114,19 @@ def validate(model, dataloader, device=None):
     Args:
         model: PyTorch model to evaluate
         dataloader: DataLoader for validation data
-        device: Torch device to run evaluation on (default: None, infers from model or uses CPU)
+        device: Torch device to run training on, e.g. torch.device('cuda')
+            (default: None, tries cuda, mps, cpu)
         
     Returns:
         Validation accuracy as a float between 0 and 1
     """
     # Infer device if not explicitly provided
     if device is None:
-        try:
-            device = next(model.parameters()).device
-        except StopIteration:
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            device = torch.device("mps")
+        else:
             device = torch.device("cpu")
 
     model.to(device)

@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from utils.classfication import train, get_dataloader
+from utils.classfication import train, fashion_mnist
 from utils import TrainingLogger
 
 class MNISTSoftmax(nn.Module):
@@ -23,8 +23,8 @@ if __name__ == "__main__":
     num_inputs = 28 * 28
     num_outputs = 10
     model = MNISTSoftmax(num_inputs, num_outputs)
-    train_loader = get_dataloader(batch_size, data_root='data')
-    val_loader = get_dataloader(batch_size, train=False, data_root='data')
+    train_loader = fashion_mnist(batch_size, data_root='data')
+    val_loader = fashion_mnist(batch_size, train=False, data_root='data')
 
     logger = TrainingLogger(
         log_path='logs/mnist_softmax_experiment.json',

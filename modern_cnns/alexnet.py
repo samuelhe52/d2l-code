@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from utils.classfication import train, get_dataloader
+from utils.classfication import train, fashion_mnist
 from utils import TrainingLogger
 
 class AlexNet(nn.Module):
@@ -31,16 +31,9 @@ if __name__ == "__main__":
     num_epochs = 10
     lr = 0.01
     
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        device = torch.device("mps")
-    else:
-        device = torch.device("cpu")
-        
-    model = AlexNet().to(device)
-    dataloader = get_dataloader(batch_size, resize=224, data_root='data/')
-    val_dataloader = get_dataloader(batch_size, train=False, resize=224, data_root='data/')
+    model = AlexNet()
+    dataloader = fashion_mnist(batch_size, resize=224, data_root='data/')
+    val_dataloader = fashion_mnist(batch_size, train=False, resize=224, data_root='data/')
     optimizer = torch.optim.SGD(model.parameters(), lr=lr)
     init_fn = torch.nn.init.kaiming_uniform_
     
@@ -65,7 +58,7 @@ if __name__ == "__main__":
     train(model, dataloader=dataloader, num_epochs=num_epochs,
           lr=lr, loss_fn=nn.CrossEntropyLoss(),
           optimizer=optimizer, save_path='models/alexnet.pt',
-          logger=logger, val_dataloader=val_dataloader, device=device)
+          logger=logger, val_dataloader=val_dataloader)
     
     logger.summary()
     logger.save()

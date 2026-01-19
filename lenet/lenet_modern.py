@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from utils import TrainingLogger
-from utils.classfication import train, get_dataloader
+from utils.classfication import train, fashion_mnist
 
 class LeNetModern(nn.Module):
     def __init__(self, num_classes=10):
@@ -35,8 +35,8 @@ if __name__ == "__main__":
         device = torch.device("cpu")
         
     model = LeNetModern().to(device)
-    dataloader = get_dataloader(batch_size, data_root='data/')
-    val_dataloader = get_dataloader(batch_size, train=False, data_root='data/')
+    dataloader = fashion_mnist(batch_size, data_root='data/')
+    val_dataloader = fashion_mnist(batch_size, train=False, data_root='data/')
     optimizer = torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
     init_fn = torch.nn.init.kaiming_uniform_
 

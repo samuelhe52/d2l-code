@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from utils import load_model
-from utils.classfication import get_dataloader
+from utils.classfication import fashion_mnist
 from pathlib import Path
 
 # We must hack the import path to import LeNet from lenet.py
@@ -89,7 +89,7 @@ model_path = 'models/lenet.pt'
 model = LeNetModern()
 load_model(model, model_path)
 model.eval()
-dataloader = get_dataloader(batch_size=10, train=False, data_root='data/')
+dataloader = fashion_mnist(batch_size=10, train=False, data_root='data/')
 
     
 if __name__ == "__main__":
