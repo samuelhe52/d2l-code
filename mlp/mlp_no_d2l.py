@@ -1,13 +1,14 @@
 import torch
-from torch import nn
+from torch import nn, Tensor
+from typing import Any, Dict
 from utils import TrainingLogger
 from utils.classfication import train, fashion_mnist
 
 
 class MLP(nn.Module):
-    def __init__(self, num_inputs, num_outputs,
-                 num_hiddens_1, num_hiddens_2,
-                 dropout_1=0.0, dropout_2=0.0):
+    def __init__(self, num_inputs: int, num_outputs: int,
+                 num_hiddens_1: int, num_hiddens_2: int,
+                 dropout_1: float = 0.0, dropout_2: float = 0.0):
         super().__init__()
         self.net = nn.Sequential(
             nn.Flatten(), nn.Linear(num_inputs, num_hiddens_1),
@@ -17,11 +18,11 @@ class MLP(nn.Module):
             nn.Linear(num_hiddens_2, num_outputs)
         )
 
-    def forward(self, X):
+    def forward(self, X: Tensor) -> Tensor:
         return self.net(X)
 
 if __name__ == "__main__":
-    hparams = {
+    hparams: Dict[str, Any] = {
         'num_inputs': 28 * 28,
         'num_outputs': 10,
         'num_hiddens_1': 512,

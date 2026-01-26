@@ -1,5 +1,4 @@
-import torch
-from torch import nn
+from torch import nn, Tensor
 from utils.classfication import train, fashion_mnist
 from utils import TrainingLogger
 
@@ -7,13 +6,13 @@ class MNISTSoftmax(nn.Module):
     """
     The Fashion-MNIST classifier using softmax regression.
     """
-    def __init__(self, num_inputs, num_outputs):
+    def __init__(self, num_inputs: int, num_outputs: int):
         super().__init__()
         self.net = nn.Sequential(
             nn.Flatten(), nn.Linear(num_inputs, num_outputs)
         )
         
-    def forward(self, X):
+    def forward(self, X: Tensor) -> Tensor:
         return self.net(X)
         
 if __name__ == "__main__":
@@ -35,8 +34,8 @@ if __name__ == "__main__":
         }
     )
     
-        train(model, train_loader, num_epochs, lr,
-            val_dataloader=val_loader, logger=logger)
+    train(model, train_loader, num_epochs, lr,
+          val_dataloader=val_loader, logger=logger)
     
     logger.summary()
     # Persist log to disk

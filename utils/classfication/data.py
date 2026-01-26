@@ -1,10 +1,13 @@
 """Data loading utilities."""
 
+from typing import Sequence, Tuple
+
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 
-def fashion_mnist(batch_size, train=True, resize=(28, 28), data_root='./data'):
+def fashion_mnist(batch_size: int, train: bool = True, resize: Sequence[int] | Tuple[int, int] = (28, 28),
+                  data_root: str = './data') -> DataLoader:
     """Download the Fashion-MNIST dataset and load it into memory.
     
     Args:

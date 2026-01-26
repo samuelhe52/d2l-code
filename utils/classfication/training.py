@@ -1,46 +1,51 @@
 """Training utilities for classification tasks."""
 
+from typing import Iterable, Optional
+
 import torch
-from torch import nn
+from torch import nn, Tensor
+from torch.optim import Optimizer
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from ..io import save_model
+from ..logging import TrainingLogger
 from ..training_config import TrainingConfig, resolve_training_config
 
 
-def accuracy(y_hat, y):
+def accuracy(y_hat: Tensor, y: Tensor) -> float:
     """Compute the number of correct predictions.
-    
+
     Args:
-        y_hat: Predicted logits, shape (batch_size, num_classes)
-        y: True labels, shape (batch_size,)
-        
+        y_hat: Predicted logits of shape ``(batch_size, num_classes)``.
+        y: Ground-truth labels of shape ``(batch_size,)``.
+
     Returns:
-        Accuracy as a float between 0 and 1
+        Accuracy as a float in ``[0, 1]``.
     """
     preds = y_hat.argmax(dim=1)
     return (preds == y).type(torch.float).sum().item() / len(y)
 
-def train(model, dataloader, num_epochs=None, lr=None,
-          loss_fn=None, optimizer=None, save_path=None, 
-          verbose=True, logger=None, val_dataloader=None,
-          device=None, config: TrainingConfig | None = None):
+
+def train(model: nn.Module, dataloader: Iterable, num_epochs: Optional[int] = None, lr: Optional[float] = None,
+          loss_fn: Optional[nn.Module] = None, optimizer: Optional[Optimizer] = None, save_path: Optional[str] = None,
+          verbose: bool = True, logger: TrainingLogger | None = None, val_dataloader: Optional[Iterable] = None,
+          device: Optional[torch.device] = None, config: TrainingConfig | None = None) -> None:
     """Train a classification model.
-    
+
     Args:
-        model: PyTorch model to train
-        dataloader: DataLoader for training data
-        num_epochs: Number of epochs to train. Can be provided via ``config``.
-        lr: Learning rate. Can be provided via ``config``.
-        loss_fn: Loss function (default: CrossEntropyLoss)
-        optimizer: Optimizer (default: SGD with specified lr)
-        save_path: Path to save model parameters after training (default: None)
-        verbose: Whether to print loss after each epoch (default: True)
-        logger: TrainingLogger instance for logging metrics (default: None)
-        val_dataloader: DataLoader for validation data to evaluate after each epoch (default: None)
-        device: Torch device to run training on, e.g. torch.device('cuda')
-            (default: None, tries cuda, mps, cpu)
-        config: Optional ``TrainingConfig``. Explicit args override matching fields.
+        model: PyTorch model to train.
+        dataloader: Iterable of training batches ``(X, y)``.
+        num_epochs: Number of epochs (overrides ``config`` if provided).
+        lr: Learning rate (overrides ``config`` if provided).
+        loss_fn: Loss function (default: ``CrossEntropyLoss``).
+        optimizer: Optimizer (default: ``SGD`` with the provided ``lr``).
+        save_path: Optional path to save model parameters after training.
+        verbose: Whether to print per-epoch metrics.
+        logger: Optional ``TrainingLogger`` to record metrics.
+        val_dataloader: Optional validation iterable for per-epoch eval.
+        device: Torch device; inferred if ``None``.
+        config: Optional ``TrainingConfig``; explicit args take precedence.
     """
     cfg = resolve_training_config(
         config,
@@ -70,7 +75,7 @@ def train(model, dataloader, num_epochs=None, lr=None,
     
     epoch_pbar = tqdm(range(cfg.num_epochs), desc='Training', unit='epoch')
     for epoch in epoch_pbar:
-        model.train() # Ensure model is in training mode
+        model.train()  # Ensure model is in training mode
         losses, accuracies = [], []
         batch_pbar = tqdm(dataloader, desc=f'Epoch {epoch + 1}/{cfg.num_epochs}', leave=False)
         for X, y in batch_pbar:
@@ -108,17 +113,16 @@ def train(model, dataloader, num_epochs=None, lr=None,
         save_model(model, cfg.save_path)
 
 
-def validate(model, dataloader, device=None):
+def validate(model: nn.Module, dataloader: Iterable, device: Optional[torch.device] = None) -> float:
     """Evaluate the model on a validation dataset.
-    
+
     Args:
-        model: PyTorch model to evaluate
-        dataloader: DataLoader for validation data
-        device: Torch device to run training on, e.g. torch.device('cuda')
-            (default: None, tries cuda, mps, cpu)
-        
+        model: PyTorch model to evaluate.
+        dataloader: Iterable of validation batches ``(X, y)``.
+        device: Torch device; inferred if ``None``.
+
     Returns:
-        Validation accuracy as a float between 0 and 1
+        Validation accuracy as a float in ``[0, 1]``.
     """
     # Infer device if not explicitly provided
     if device is None:

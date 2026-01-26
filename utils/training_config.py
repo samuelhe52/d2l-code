@@ -1,7 +1,10 @@
 """Shared training configuration utilities."""
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Callable, Optional
+
+import torch
+from torch.optim import Optimizer
 
 
 @dataclass
@@ -13,12 +16,12 @@ class TrainingConfig:
 
     num_epochs: Optional[int] = None
     lr: Optional[float] = None
-    loss_fn: Any = None
-    optimizer: Any = None
+    loss_fn: Optional[Callable[..., torch.Tensor]] = None
+    optimizer: Optional[Optimizer] = None
     save_path: Optional[str] = None
     verbose: bool = True
     logger: Any = None
-    device: Any = None
+    device: Optional[torch.device] = None
 
 
 def resolve_training_config(config: Optional[TrainingConfig], **overrides: Any) -> TrainingConfig:

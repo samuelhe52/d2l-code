@@ -3,6 +3,9 @@
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, MutableMapping, Optional
+
+History = MutableMapping[str, List[float]]
 
 
 class TrainingLogger:
@@ -13,22 +16,23 @@ class TrainingLogger:
         hparams: Dictionary of hyperparameters to record
     """
     
-    def __init__(self, log_path=None, hparams=None):
+    def __init__(self, log_path: Optional[str | Path] = None, hparams: Optional[Dict[str, Any]] = None):
         self.log_path = Path(log_path) if log_path else None
-        self.hparams = hparams or {}
+        self.hparams: Dict[str, Any] = hparams or {}
         self.start_time = datetime.now()
-        self.history = {
+        self.history: History = {
             'train_loss': [],
             'val_loss': [],
             'train_acc': [],
             'val_acc': [],
         }
-        self.metadata = {
+        self.metadata: Dict[str, Any] = {
             'timestamp': self.start_time.isoformat(),
             'hparams': self.hparams,
         }
     
-    def log_epoch(self, epoch, train_loss=None, val_loss=None, train_acc=None, val_acc=None, **kwargs):
+    def log_epoch(self, epoch: int, train_loss: Optional[float] = None, val_loss: Optional[float] = None,
+                 train_acc: Optional[float] = None, val_acc: Optional[float] = None, **kwargs: float) -> None:
         """Log metrics for a single epoch.
         
         Args:
@@ -39,6 +43,7 @@ class TrainingLogger:
             val_acc: Validation accuracy after the epoch
             **kwargs: Additional metrics to log
         """
+        del epoch  # unused for now; kept for potential future ordering logic
         if train_loss is not None:
             self.history['train_loss'].append(train_loss)
         if val_loss is not None:
@@ -54,7 +59,7 @@ class TrainingLogger:
                 self.history[key] = []
             self.history[key].append(value)
     
-    def save(self, path=None):
+    def save(self, path: Optional[str | Path] = None) -> None:
         """Save the log to a JSON file, appending to existing runs.
         
         Args:
@@ -66,14 +71,14 @@ class TrainingLogger:
         
         save_path.parent.mkdir(parents=True, exist_ok=True)
         
-        log_data = {
+        log_data: Dict[str, Any] = {
             **self.metadata,
             'duration_seconds': (datetime.now() - self.start_time).total_seconds(),
             'history': self.history,
         }
         
         # Load existing runs if file exists
-        runs = []
+        runs: List[Dict[str, Any]] = []
         if save_path.exists():
             with open(save_path, 'r') as f:
                 existing = json.load(f)
@@ -89,11 +94,11 @@ class TrainingLogger:
             json.dump(runs, f, indent=2)
         print(f'Log saved to {save_path} (run {len(runs)})')
     
-    def summary(self):
+    def summary(self) -> None:
         """Print a summary of the training run."""
         duration = datetime.now() - self.start_time
         print(f'\n{"="*50}')
-        print(f'Training Summary')
+        print('Training Summary')
         print(f'{"="*50}')
         print(f'Duration: {duration}')
         if self.hparams:

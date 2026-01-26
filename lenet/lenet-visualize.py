@@ -1,16 +1,17 @@
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
+from typing import Iterable
 from utils import load_model
 from utils.classfication import fashion_mnist
 from pathlib import Path
 
-# We must hack the import path to import LeNet from lenet.py
+# Add this file's folder to the path so we can import the model next to it.
 import sys
 sys.path.append(str(Path(__file__).resolve().parent))
-from lenet import LeNetModern
+from lenet_modern import LeNetModern
 
-def visualize_filters(model, layer_index=0):
+def visualize_filters(model: nn.Module, layer_index: int = 0) -> None:
     """Visualize the filters of a specific convolutional layer."""
     conv_layer = None
     conv_count = 0
@@ -34,7 +35,7 @@ def visualize_filters(model, layer_index=0):
         ax.axis('off')
     plt.show()
 
-def visualize_activations(model, dataloader, layer_index=0):
+def visualize_activations(model: nn.Module, dataloader: Iterable, layer_index: int = 0) -> None:
     """Visualize activations of a convolutional layer for the entire batch."""
     conv_layer = None
     conv_count = 0

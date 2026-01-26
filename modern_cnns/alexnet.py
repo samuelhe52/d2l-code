@@ -1,11 +1,12 @@
 import torch
-from torch import nn
+from torch import nn, Tensor
+from typing import Any, Dict
 from utils.classfication import train, fashion_mnist
 from utils import TrainingLogger
 from utils.training_config import TrainingConfig
 
 class AlexNet(nn.Module):
-    def __init__(self, num_classes=10):
+    def __init__(self, num_classes: int = 10):
         super().__init__()
         self.net = nn.Sequential(
             nn.Conv2d(1, 96, kernel_size=11, stride=4, padding=2), nn.ReLU(),
@@ -18,13 +19,13 @@ class AlexNet(nn.Module):
             nn.MaxPool2d(kernel_size=3, stride=2),
             nn.Flatten(),
             nn.Linear(256 * 6 * 6, 4096), nn.ReLU(),
-            nn.Dropout(), # Default dropout rate of 0.5
+            nn.Dropout(),  # Default dropout rate of 0.5
             nn.Linear(4096, 4096), nn.ReLU(),
             nn.Dropout(),
             nn.Linear(4096, num_classes)
         )
 
-    def forward(self, X):
+    def forward(self, X: Tensor) -> Tensor:
         return self.net(X)
 
 if __name__ == "__main__":
@@ -37,7 +38,7 @@ if __name__ == "__main__":
     val_dataloader = fashion_mnist(batch_size, train=False, resize=224, data_root='data/')
     init_fn = torch.nn.init.kaiming_uniform_
     
-    hparams = {
+    hparams: Dict[str, Any] = {
         'batch_size': batch_size,
         'num_epochs': num_epochs,
         'lr': lr,

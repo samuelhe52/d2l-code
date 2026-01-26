@@ -1,10 +1,11 @@
 import torch
-from torch import nn
+from torch import nn, Tensor
+from typing import Any, Dict
 from utils import TrainingLogger
 from utils.classfication import train, fashion_mnist
 
 class LeNetModern(nn.Module):
-    def __init__(self, num_classes=10):
+    def __init__(self, num_classes: int = 10):
         super().__init__()
         self.net = nn.Sequential(
             nn.Conv2d(1, 6, kernel_size=5, padding=2), nn.ReLU(),
@@ -17,7 +18,7 @@ class LeNetModern(nn.Module):
             nn.Linear(84, num_classes)
         )
 
-    def forward(self, X):
+    def forward(self, X: Tensor) -> Tensor:
         return self.net(X)
 
 if __name__ == "__main__":
@@ -40,7 +41,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.SGD(model.parameters(), lr=lr, weight_decay=weight_decay)
     init_fn = torch.nn.init.kaiming_uniform_
 
-    hparams = {
+    hparams: Dict[str, Any] = {
         'batch_size': batch_size,
         'num_epochs': num_epochs,
         'lr': lr,

@@ -1,5 +1,6 @@
 import torch
-from torch import nn
+from torch import nn, Tensor
+from typing import Iterable, List, Sequence, Tuple, Dict, Any
 from utils.regression import train
 from utils import TrainingLogger
 from tqdm import tqdm
@@ -16,13 +17,13 @@ class LinearRegression(nn.Module):
         super().__init__()
         self.linear = nn.LazyLinear(1)
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         return self.linear(x)
     
 class MLP(nn.Module):
-    def __init__(self, hidden_units=[64, 32], dropout = 0.0):
+    def __init__(self, hidden_units: Sequence[int] = (64, 32), dropout: float = 0.0):
         super().__init__()
-        layers = []
+        layers: List[nn.Module] = []
         for hidden_unit in hidden_units:
             layers.append(nn.LazyLinear(hidden_unit))
             layers.append(nn.ReLU())
@@ -31,10 +32,10 @@ class MLP(nn.Module):
         layers.append(nn.LazyLinear(1))  # Output layer
         self.net = nn.Sequential(*layers)
         
-    def forward(self, X):
+    def forward(self, X: Tensor) -> Tensor:
         return self.net(X)
     
-def predict_price(models, X):
+def predict_price(models: Sequence[nn.Module], X: Tensor) -> Tensor:
     """Predict house prices using an ensemble of models.
     
     Args:
@@ -48,7 +49,7 @@ def predict_price(models, X):
     # Need to exponentiate since model predicts log-prices
     return torch.exp(torch.cat(preds, dim=1).mean(dim=1))
 
-def test(models, test_loader):
+def test(models: Sequence[nn.Module], test_loader: Iterable[Tensor]) -> Tensor:
     """Evaluate ensemble of models on test data.
     
     Args:
@@ -58,14 +59,14 @@ def test(models, test_loader):
     Returns:
         Tensor of predicted house prices for the test set
     """
-    preds = []
+    preds: List[Tensor] = []
     for X in test_loader:
         pred = predict_price(models, X)
         preds.append(pred)
     tensor_preds = torch.cat(preds)
     return tensor_preds
 
-def generate_submission(models, test_loader, path):
+def generate_submission(models: Sequence[nn.Module], test_loader: Iterable[Tensor], path: str) -> None:
     """Generate submission file for Kaggle competition.
     
     Args:
@@ -85,7 +86,7 @@ def generate_submission(models, test_loader, path):
 
 
 if __name__ == "__main__":
-    hparams = {
+    hparams: Dict[str, Any] = {
         'model': 'MLP',
         'hidden_units': [32, 24, 16],
         'dropout': 0.00,
@@ -96,7 +97,7 @@ if __name__ == "__main__":
     }
     
     loaders = k_fold_loaders(k=6, batch_size=hparams['batch_size'])
-    models = []
+    models: List[Tuple[nn.Module, float | None]] = []
     
     logger = TrainingLogger(
         log_path='logs/house_price_mlp_kfold.json',
@@ -110,7 +111,7 @@ if __name__ == "__main__":
         tqdm.write(f"Training fold {i + 1}/{len(loaders)}")
 
         model = MLP(hidden_units=hparams['hidden_units'],
-                    dropout=hparams['dropout'])
+                dropout=hparams['dropout'])
             
         optim = torch.optim.SGD(
             model.parameters(),

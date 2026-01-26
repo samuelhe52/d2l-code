@@ -1,36 +1,39 @@
 """Training utilities for regression tasks."""
 
+from typing import Iterable, Optional, Tuple
+
 import torch
-from torch import nn
+from torch import nn, Tensor
+from torch.optim import Optimizer
 from tqdm import tqdm
 
 from ..io import save_model
+from ..logging import TrainingLogger
 from ..training_config import TrainingConfig, resolve_training_config
 
-def train(model, dataloader, num_epochs=None, lr=None,
-          loss_fn=None, optimizer=None, save_path=None, 
-          verbose=True, logger=None, val_dataloader=None,
-          device=None, config: TrainingConfig | None = None):
+def train(model: nn.Module, dataloader: Iterable, num_epochs: Optional[int] = None, lr: Optional[float] = None,
+          loss_fn: Optional[nn.Module] = None, optimizer: Optional[Optimizer] = None, save_path: Optional[str] = None, 
+          verbose: bool = True, logger: TrainingLogger | None = None, val_dataloader: Optional[Iterable] = None,
+          device: Optional[torch.device] = None, config: TrainingConfig | None = None) -> Tuple[float | None, float | None]:
     """Train a regression model.
-    
+
     Args:
-        model: PyTorch model to train
-        dataloader: DataLoader for training data
-        num_epochs: Number of epochs to train. Can be provided via ``config``.
-        lr: Learning rate. Can be provided via ``config``.
-        loss_fn: Loss function (default: MSELoss)
-        optimizer: Optimizer (default: SGD with specified lr)
-        save_path: Path to save model parameters after training (default: None)
-        verbose: Whether to print loss after each epoch (default: True)
-        logger: TrainingLogger instance for logging metrics (default: None)
-        val_dataloader: DataLoader for validation data to evaluate after each epoch (default: None)
-        device: Torch device to run training on, e.g. torch.device('cuda')
-            (default: None, tries cuda, mps, cpu)
-        config: Optional ``TrainingConfig``. Explicit args override matching fields.
+        model: PyTorch model to train.
+        dataloader: Iterable of training batches ``(X, y)``.
+        num_epochs: Number of epochs (overrides ``config`` if provided).
+        lr: Learning rate (overrides ``config`` if provided).
+        loss_fn: Loss function (default: ``MSELoss``).
+        optimizer: Optimizer (default: ``SGD`` with the provided ``lr``).
+        save_path: Optional path to save model parameters after training.
+        verbose: Whether to print per-epoch metrics.
+        logger: Optional ``TrainingLogger`` to record metrics.
+        val_dataloader: Optional validation iterable for per-epoch eval.
+        device: Torch device; inferred if ``None``.
+        config: Optional ``TrainingConfig``; explicit args take precedence.
 
     Returns:
-        A tuple for average (training loss, validation loss) for the last epoch.
-        If no validation dataloader is provided, validation loss will be None.
+        Tuple of ``(train_loss, val_loss)`` for the final epoch. ``val_loss`` is
+        ``None`` when no validation dataloader is provided.
     """
     cfg = resolve_training_config(
         config,
@@ -62,10 +65,10 @@ def train(model, dataloader, num_epochs=None, lr=None,
         optimizer = cfg.optimizer
     
     epoch_pbar = tqdm(range(cfg.num_epochs), desc='Training', unit='epoch')
-    last_train_loss = None
-    last_val_loss = None
+    last_train_loss: float | None = None
+    last_val_loss: float | None = None
     for epoch in epoch_pbar:
-        model.train() # Ensure model is in training mode
+        model.train()  # Ensure model is in training mode
         losses = []
         batch_pbar = tqdm(dataloader, desc=f'Epoch {epoch + 1}/{cfg.num_epochs}', leave=False)
         for X, y in batch_pbar:
@@ -105,17 +108,17 @@ def train(model, dataloader, num_epochs=None, lr=None,
     return last_train_loss, last_val_loss
 
 
-def validate(model, loss_fn, dataloader, device=None):
+def validate(model: nn.Module, loss_fn: nn.Module, dataloader: Iterable, device: Optional[torch.device] = None) -> float:
     """Evaluate the model on a validation dataset.
-    
+
     Args:
-        model: PyTorch model to evaluate
-        loss_fn: Loss function to use for evaluation
-        dataloader: DataLoader for validation data
-        device: Torch device to run evaluation on (default: None, tries cuda, mps, cpu)
-        
+        model: PyTorch model to evaluate.
+        loss_fn: Loss function used for evaluation.
+        dataloader: Iterable of validation batches ``(X, y)``.
+        device: Torch device; inferred if ``None``.
+
     Returns:
-        Average loss over the validation dataset.
+        Average validation loss.
     """
     # Infer device if not explicitly provided
     if device is None:
