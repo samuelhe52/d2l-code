@@ -1,6 +1,7 @@
+# This implementation is an adaptation of ResNet with pre-activation residual blocks.
+
 import torch
 from torch import nn, Tensor
-from torch.nn import functional as F
 from utils.classfication import train, fashion_mnist
 from utils import TrainingLogger
 from utils.training_config import TrainingConfig
@@ -17,26 +18,31 @@ class ResidualBasicBlock(nn.Module):
     """
     def __init__(self, out_channels: int, stride: int = 1, use_proj: bool = True):
         super().__init__()
-        conv1 = nn.Sequential(
-            nn.LazyConv2d(out_channels, kernel_size=3, stride=stride, padding=1, bias=False),
+        self.norm_act = nn.Sequential(
             nn.LazyBatchNorm2d(),
             nn.ReLU(),
         )
+        conv1 = nn.LazyConv2d(out_channels, kernel_size=3,
+                                   stride=stride, padding=1, bias=False)
         conv2 = nn.Sequential(
-            nn.LazyConv2d(out_channels, kernel_size=3, padding=1, bias=False),
             nn.LazyBatchNorm2d(),
+            nn.ReLU(),
+            nn.LazyConv2d(out_channels, kernel_size=3, padding=1, bias=False),
         )
         self.use_proj = use_proj
-        self.proj = nn.Sequential(
-            nn.LazyConv2d(out_channels, kernel_size=1, stride=stride, bias=False),
-            nn.LazyBatchNorm2d(),
-        ) if use_proj else None
         self.conv_layers = nn.Sequential(conv1, conv2)
+        self.proj = nn.LazyConv2d(out_channels, kernel_size=1,
+                                  stride=stride, bias=False) if use_proj else None
 
     def forward(self, X: Tensor) -> Tensor:
-        out = self.conv_layers(X)
-        shortcut = self.proj(X) if self.use_proj else X
-        return F.relu(out + shortcut)
+        if self.use_proj:
+            X = self.norm_act(X)
+            out = self.conv_layers(X)
+            shortcut = self.proj(X)
+        else:
+            out = self.conv_layers(self.norm_act(X))
+            shortcut = X
+        return out + shortcut
 
 class ResidualBottleneckBlock(nn.Module):
     """
@@ -51,31 +57,35 @@ class ResidualBottleneckBlock(nn.Module):
     def __init__(self, mid_channels: int, stride: int = 1, expansion: int = 4, use_proj: bool = True):
         super().__init__()
         out_channels = mid_channels * expansion
-        conv1 = nn.Sequential(
-            nn.LazyConv2d(mid_channels, kernel_size=1, bias=False),
+        self.norm_act = nn.Sequential(
             nn.LazyBatchNorm2d(),
             nn.ReLU(),
         )
+        conv1 = nn.LazyConv2d(mid_channels, kernel_size=1, bias=False)
         conv2 = nn.Sequential(
-            nn.LazyConv2d(mid_channels, kernel_size=3, stride=stride, padding=1, bias=False),
             nn.LazyBatchNorm2d(),
             nn.ReLU(),
+            nn.LazyConv2d(mid_channels, kernel_size=3, stride=stride, padding=1, bias=False),
         )
         conv3 = nn.Sequential(
-            nn.LazyConv2d(out_channels, kernel_size=1, bias=False),
             nn.LazyBatchNorm2d(),
+            nn.ReLU(),
+            nn.LazyConv2d(out_channels, kernel_size=1, bias=False),
         )
         self.use_proj = use_proj
-        self.proj = nn.Sequential(
-            nn.LazyConv2d(out_channels, kernel_size=1, stride=stride, bias=False),
-            nn.LazyBatchNorm2d(),
-        ) if use_proj else None
+        self.proj = nn.LazyConv2d(out_channels, kernel_size=1,
+                                  stride=stride, bias=False) if use_proj else None
         self.conv_layers = nn.Sequential(conv1, conv2, conv3)
 
     def forward(self, X: Tensor) -> Tensor:
-        out = self.conv_layers(X)
-        shortcut = self.proj(X) if self.use_proj else X
-        return F.relu(out + shortcut)
+        if self.use_proj:
+            X = self.norm_act(X)
+            out = self.conv_layers(X)
+            shortcut = self.proj(X)
+        else:
+            out = self.conv_layers(self.norm_act(X))
+            shortcut = X
+        return out + shortcut
 
 class ResNetStage(nn.Module):
     """
@@ -150,12 +160,12 @@ class ResNet(nn.Module):
     def stem(self, num_channels: int) -> nn.Sequential:
         return nn.Sequential(
             nn.LazyConv2d(num_channels, kernel_size=7, stride=2, padding=3, bias=False),
-            nn.LazyBatchNorm2d(), nn.ReLU(),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
         )
     
     def head(self, num_classes: int) -> nn.Sequential:
         return nn.Sequential(
+            nn.LazyBatchNorm2d(), nn.ReLU(), # Account for the last block's pre-activation
             nn.AdaptiveAvgPool2d((1, 1)), nn.Flatten(),
             nn.LazyLinear(num_classes),
         )
@@ -194,7 +204,7 @@ if __name__ == "__main__":
     }
     
     logger = TrainingLogger(
-        log_path='logs/resnet18_experiment.json',
+        log_path='logs/resnet_pre_act_experiment.json',
         hparams=hparams
     )
     
@@ -208,7 +218,7 @@ if __name__ == "__main__":
     config = TrainingConfig(
         num_epochs=num_epochs,
         lr=lr,
-        save_path='models/resnet18.pt',
+        save_path='models/resnet_pre_act.pt',
         logger=logger,
     )
 
