@@ -94,9 +94,9 @@ def train(model: nn.Module, dataloader: Iterable, num_epochs: Optional[int] = No
         avg_acc = sum(accuracies) / len(accuracies)
         
         # Evaluate on validation set if provided
-        val_acc = None
+        val_acc, val_loss = None, None
         if val_dataloader is not None:
-            val_acc = validate(model, val_dataloader, device=device)
+            val_acc, val_loss = validate(model, val_dataloader, device=device, loss_fn=loss_fn)
             epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', train=f'{avg_acc:.2%}', val=f'{val_acc:.2%}')
             if cfg.verbose:
                 tqdm.write(f'Epoch {epoch + 1}/{cfg.num_epochs} — Loss: {avg_loss:.4f}, '
@@ -107,22 +107,24 @@ def train(model: nn.Module, dataloader: Iterable, num_epochs: Optional[int] = No
                 tqdm.write(f'Epoch {epoch + 1}/{cfg.num_epochs} — Loss: {avg_loss:.4f}, Acc: {avg_acc:.2%}')
         
         if cfg.logger is not None:
-            cfg.logger.log_epoch(epoch, train_loss=avg_loss, train_acc=avg_acc, val_acc=val_acc)
+            cfg.logger.log_epoch(epoch, train_loss=avg_loss, train_acc=avg_acc, val_acc=val_acc, val_loss=val_loss)
     
     if cfg.save_path is not None:
         save_model(model, cfg.save_path)
 
 
-def validate(model: nn.Module, dataloader: Iterable, device: Optional[torch.device] = None) -> float:
+def validate(model: nn.Module, dataloader: Iterable, device: Optional[torch.device] = None,
+             loss_fn: Optional[nn.Module] = None) -> tuple[float, float | None]:
     """Evaluate the model on a validation dataset.
 
     Args:
         model: PyTorch model to evaluate.
         dataloader: Iterable of validation batches ``(X, y)``.
         device: Torch device; inferred if ``None``.
+        loss_fn: Loss function for computing validation loss (optional).
 
     Returns:
-        Validation accuracy as a float in ``[0, 1]``.
+        Tuple of (validation accuracy, validation loss). Loss is None if loss_fn not provided.
     """
     # Infer device if not explicitly provided
     if device is None:
@@ -136,10 +138,15 @@ def validate(model: nn.Module, dataloader: Iterable, device: Optional[torch.devi
     model.to(device)
     model.eval()
     accuracies = []
+    losses = []
     with torch.no_grad():
         for X, y in dataloader:
             X = X.to(device)
             y = y.to(device)
             y_hat = model(X)
             accuracies.append(accuracy(y_hat, y))
-    return sum(accuracies) / len(accuracies)
+            if loss_fn is not None:
+                losses.append(loss_fn(y_hat, y).item())
+    avg_acc = sum(accuracies) / len(accuracies)
+    avg_loss = sum(losses) / len(losses) if losses else None
+    return avg_acc, avg_loss
