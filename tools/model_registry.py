@@ -15,6 +15,8 @@ VGG11_ARCH = [
 
 # id -> (path, class name, H, W, kwargs)
 MODELS: Dict[str, Tuple[Path, str, int, int, Dict[str, Any]]] = {
+    "resnet18": (ROOT / "modern_cnns" / "resnet.py", "ResNet18", 96, 96, {}),
+    "resnet50": (ROOT / "modern_cnns" / "resnet.py", "ResNet50", 96, 96, {}),
     "googlenet_bn": (ROOT / "modern_cnns" / "googlenet_batch_norm.py", "GoogleNetBN", 96, 96, {}),
     "googlenet": (ROOT / "modern_cnns" / "googlenet.py", "GoogLeNet", 96, 96, {}),
     "nin": (ROOT / "modern_cnns" / "nin.py", "NiN", 84, 84, {}),
