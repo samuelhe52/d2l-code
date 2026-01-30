@@ -1,4 +1,4 @@
-.PHONY: dashboard summary
+.PHONY: dashboard summary flops
 
 dashboard:
 	@echo "Go to http://localhost:8000/docs/experiment_dashboard.html to view the dashboard"
@@ -6,3 +6,6 @@ dashboard:
 
 summary:
 	@python3 tools/model_summary.py --model=$(model)
+
+flops:
+	@python3 tools/profile_flops.py

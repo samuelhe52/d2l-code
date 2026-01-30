@@ -24,19 +24,16 @@ class ResidualBlock(nn.Module):
         out_channels = mid_channels * expansion
         conv1 = nn.LazyConv2d(mid_channels, kernel_size=1, bias=False)
         conv2 = nn.Sequential(
-            nn.LazyBatchNorm2d(),
-            nn.ReLU(),
+            nn.LazyBatchNorm2d(), nn.ReLU(),
             nn.LazyConv2d(mid_channels, kernel_size=3, stride=stride,
                           padding=1, bias=False, groups=cardinality),
         )
         conv3 = nn.Sequential(
-            nn.LazyBatchNorm2d(),
-            nn.ReLU(),
+            nn.LazyBatchNorm2d(), nn.ReLU(),
             nn.LazyConv2d(out_channels, kernel_size=1, bias=False),
         )
         self.norm_act = nn.Sequential(
-            nn.LazyBatchNorm2d(),
-            nn.ReLU(),
+            nn.LazyBatchNorm2d(), nn.ReLU(),
         )
         self.use_proj = use_proj
         self.proj = nn.LazyConv2d(out_channels, kernel_size=1,
