@@ -73,7 +73,7 @@ def train(model: nn.Module, dataloader: Iterable, num_epochs: Optional[int] = No
         batch_pbar = tqdm(dataloader, desc=f'Epoch {epoch + 1}/{cfg.num_epochs}', leave=False)
         for X, y in batch_pbar:
             X = X.to(device)
-            y = y.to(device)
+            y = y.to(device).reshape(-1, 1)
             optimizer.zero_grad()
             y_hat = model(X)
             loss = loss_fn(y_hat, y)
@@ -135,7 +135,7 @@ def validate(model: nn.Module, loss_fn: nn.Module, dataloader: Iterable, device:
     with torch.no_grad():
         for X, y in dataloader:
             X = X.to(device)
-            y = y.to(device)
+            y = y.to(device).reshape(-1, 1)
             y_hat = model(X)
             loss = loss_fn(y_hat, y)
             losses.append(loss.item())
