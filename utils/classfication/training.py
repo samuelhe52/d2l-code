@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from ..io import save_model
-from ..logging import TrainingLogger
+from ..training_logger import TrainingLogger
 from ..training_config import TrainingConfig, resolve_training_config
 
 

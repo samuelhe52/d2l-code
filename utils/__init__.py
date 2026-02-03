@@ -5,12 +5,14 @@ from typing import List
 from . import classfication
 from . import regression
 from .io import load_model, save_model
-from .logging import TrainingLogger
+from .training_logger import TrainingLogger
+from . import rnn
 
 __all__: List[str] = [
     'classfication',
     'regression',
     'save_model',
     'load_model',
-    'TrainingLogger'
+    'TrainingLogger',
+    'rnn',
     ]

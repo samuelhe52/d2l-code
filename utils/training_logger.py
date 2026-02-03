@@ -1,4 +1,4 @@
-"""Logging utilities for training experiments."""
+"""Training metrics logger (kept separate from stdlib logging)."""
 
 import json
 from datetime import datetime

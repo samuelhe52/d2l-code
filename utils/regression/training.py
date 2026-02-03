@@ -8,7 +8,7 @@ from torch.optim import Optimizer
 from tqdm import tqdm
 
 from ..io import save_model
-from ..logging import TrainingLogger
+from ..training_logger import TrainingLogger
 from ..training_config import TrainingConfig, resolve_training_config
 
 def train(model: nn.Module, dataloader: Iterable, num_epochs: Optional[int] = None, lr: Optional[float] = None,
