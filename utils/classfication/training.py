@@ -1,6 +1,6 @@
 """Training utilities for classification tasks."""
 
-from typing import Iterable, Optional
+from typing import Iterable, Optional, overload
 
 import torch
 from torch import nn, Tensor
@@ -27,15 +27,63 @@ def accuracy(y_hat: Tensor, y: Tensor) -> float:
     return (preds == y).type(torch.float).sum().item() / len(y)
 
 
-def train(model: nn.Module, dataloader: Iterable, num_epochs: Optional[int] = None, lr: Optional[float] = None,
-          loss_fn: Optional[nn.Module] = None, optimizer: Optional[Optimizer] = None, save_path: Optional[str] = None,
-          verbose: bool = True, logger: TrainingLogger | None = None, val_dataloader: Optional[Iterable] = None,
-          device: Optional[torch.device] = None, config: TrainingConfig | None = None) -> None:
+@overload
+def train(
+    model: nn.Module,
+    dataloader: Iterable,
+    val_dataloader: Iterable | None,
+    config: TrainingConfig,
+) -> None: ...
+
+
+@overload
+def train(
+    model: nn.Module,
+    dataloader: Iterable,
+    val_dataloader: Iterable | None = None,
+    *,
+    num_epochs: int,
+    lr: float,
+    loss_fn: nn.Module | None = None,
+    optimizer: Optimizer | None = None,
+    save_path: str | None = None,
+    verbose: bool = True,
+    logger: TrainingLogger | None = None,
+    device: torch.device | None = None,
+) -> None: ...
+
+
+def train(
+    model: nn.Module,
+    dataloader: Iterable,
+    val_dataloader: Iterable | None = None,
+    config: TrainingConfig | None = None,
+    *,
+    num_epochs: int | None = None,
+    lr: float | None = None,
+    loss_fn: nn.Module | None = None,
+    optimizer: Optimizer | None = None,
+    save_path: str | None = None,
+    verbose: bool = True,
+    logger: TrainingLogger | None = None,
+    device: torch.device | None = None,
+) -> None:
     """Train a classification model.
+
+    This function supports two usage patterns:
+
+    **Preferred (config-based):**
+        >>> train(model, train_loader, config=cfg, val_dataloader=val_loader)
+
+    **Legacy (explicit params):**
+        >>> train(model, train_loader, num_epochs=10, lr=0.01, ...)
 
     Args:
         model: PyTorch model to train.
         dataloader: Iterable of training batches ``(X, y)``.
+        val_dataloader: Optional validation iterable for per-epoch eval.
+        config: Training configuration (preferred). If provided, other args
+            override the corresponding config values.
         num_epochs: Number of epochs (overrides ``config`` if provided).
         lr: Learning rate (overrides ``config`` if provided).
         loss_fn: Loss function (default: ``CrossEntropyLoss``).
@@ -43,9 +91,7 @@ def train(model: nn.Module, dataloader: Iterable, num_epochs: Optional[int] = No
         save_path: Optional path to save model parameters after training.
         verbose: Whether to print per-epoch metrics.
         logger: Optional ``TrainingLogger`` to record metrics.
-        val_dataloader: Optional validation iterable for per-epoch eval.
         device: Torch device; inferred if ``None``.
-        config: Optional ``TrainingConfig``; explicit args take precedence.
     """
     cfg = resolve_training_config(
         config,
