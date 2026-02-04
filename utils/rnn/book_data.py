@@ -1,7 +1,6 @@
-import random
 import re
 import torch
-from torch import nn, Tensor
+from torch import Tensor
 from torch.utils.data import DataLoader, Dataset
 from pathlib import Path
 import hashlib
@@ -12,6 +11,7 @@ class BookData(Dataset):
     Dataset for loading and processing book text data.
     
     Args:
+        seq_len (int): Length of each sequence sample.
         book_name (str): Name of the book.
         book_url (str): URL to download the book text.
         md5_hash (str): MD5 hash to verify the downloaded file.
@@ -19,8 +19,9 @@ class BookData(Dataset):
         use_chars (bool): Whether to tokenize the text into 
             characters (True) or words (False).
     """
-    def __init__(self, book_name: str, book_url: str, md5_hash: str,
-                 data_root: str = './data', use_chars: bool = True):
+    def __init__(self, seq_len: int = 35, *, book_name: str,
+                 book_url: str, md5_hash: str, data_root: str = './data',
+                 use_chars: bool = True):
         super().__init__()
         self.book_name = book_name
         self.book_url = book_url
@@ -32,6 +33,14 @@ class BookData(Dataset):
         self.tokens = self._tokenize(self.processed_text, use_chars=use_chars)
         self.vocab = Vocab(self.tokens)
         self.corpus = [self.vocab[token] for token in self.tokens]
+
+        self.features, self.labels = self._create_features_and_labels(seq_len)
+    
+    def __len__(self):
+        return len(self.features)
+    
+    def __getitem__(self, idx):
+        return self.features[idx], self.labels[idx]
 
     def _load_data_str(self, data_root) -> str:
         """
@@ -91,17 +100,42 @@ class BookData(Dataset):
         """
         return list(text) if use_chars else text.split()
     
+    def _create_features_and_labels(self, seq_len: int) -> tuple[Tensor, Tensor]:
+        """
+        Create features and labels tensors for sequence modeling.
+        
+        Args:
+            seq_len (int): Length of each sequence sample.
+        Returns:
+            tuple[Tensor, Tensor]: Features and labels tensors.
+        """
+        num_examples = len(self.corpus) - seq_len
+        array = torch.tensor(
+            [self.corpus[i : i + seq_len + 1]
+             for i in range(num_examples)]
+        )
+        features = array[:, :-1]
+        labels = array[:, 1:]
+        return features, labels
+    
 class TimeMachineData(BookData):
     """
     Dataset for the "The Time Machine" book by H.G. Wells.
+    
+    Args:
+        seq_len (int): Length of each sequence sample.
+        data_root (str): Root directory for storing/loading the dataset.
+        use_chars (bool): Whether to tokenize the text into 
+            characters (True) or words (False).
     """
-    def __init__(self, data_root: str = './data', use_chars: bool = True):
+    def __init__(self, seq_len: int, data_root: str = './data', use_chars: bool = True):
         super().__init__(
+            seq_len=seq_len,
             book_name='time_machine',
             book_url='https://d2l-data.s3-accelerate.amazonaws.com/timemachine.txt',
             md5_hash='7353d136ab308ecd0d4f1c5bf0e23122',
             data_root=data_root,
-            use_chars=use_chars
+            use_chars=use_chars,
         )
     
     def _preprocess_text(self, text: str) -> str:
@@ -113,10 +147,18 @@ class TimeMachineData(BookData):
 
 
 class PrideAndPrejudiceData(BookData):
-    """Dataset for Jane Austen's "Pride and Prejudice."""
-
-    def __init__(self, data_root: str = './data', use_chars: bool = True):
+    """
+    Dataset for Jane Austen's "Pride and Prejudice.
+    
+    Args:
+        seq_len (int): Length of each sequence sample.
+        data_root (str): Root directory for storing/loading the dataset.
+        use_chars (bool): Whether to tokenize the text into 
+            characters (True) or words (False).
+    """
+    def __init__(self, seq_len: int, data_root: str = './data', use_chars: bool = True):
         super().__init__(
+            seq_len=seq_len,
             book_name='pride_and_prejudice',
             book_url='https://www.gutenberg.org/cache/epub/1342/pg1342.txt',
             md5_hash='9ec834c0167fbb97231ffa192f75b09a',
@@ -136,3 +178,23 @@ class PrideAndPrejudiceData(BookData):
         text = text.lower()
         text = re.sub(r'[^a-z\s]', ' ', text)
         return text.strip()
+
+def book_data_loader(book_data: BookData, batch_size: int,
+                     train_ratio: float = 0.8, train: bool = True) -> DataLoader:
+    """
+    Create a DataLoader for the given BookData dataset.
+    
+    Args:
+        book_data (BookData): A BookData dataset instance.
+        batch_size (int): Batch size for the DataLoader.
+        train_ratio (float): Ratio of data to use for training.
+        train (bool): Whether to return the training DataLoader or validation DataLoader.
+    Returns:
+        DataLoader: Torch DataLoader yielding (features, labels).
+    """
+    n_train = int(len(book_data) * train_ratio)
+    if train:
+        subset = torch.utils.data.Subset(book_data, list(range(n_train)))
+    else:
+        subset = torch.utils.data.Subset(book_data, list(range(n_train, len(book_data))))
+    return DataLoader(subset, batch_size=batch_size, shuffle=train)

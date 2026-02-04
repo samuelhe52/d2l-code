@@ -3,7 +3,7 @@ from torch import nn, Tensor
 from torch.nn import functional as F
 from utils.classfication import train, fashion_mnist
 from utils import TrainingLogger
-from utils.training_config import TrainingConfig
+from utils import TrainingConfig
 from typing import Dict, Any, Type, List, Tuple
 
 class DenseBlock(nn.Module):

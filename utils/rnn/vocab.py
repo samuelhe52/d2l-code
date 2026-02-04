@@ -1,4 +1,5 @@
 import collections
+from typing import overload
 from torch.utils.data import Dataset
 
 class Vocab(Dataset):
@@ -37,10 +38,11 @@ class Vocab(Dataset):
             # Get the index of a single token, return 'unk' index if not found
             return self.token_to_idx.get(tokens, self.token_to_idx['unk'])
         elif isinstance(tokens, list):
-            return [self.__getitem__(token) for token in tokens]
+            return [self.token_to_idx.get(token, self.token_to_idx['unk'])
+                    for token in tokens]
         else:
             raise TypeError('Input must be a string or list of strings')
-        
+    
     def to_tokens(self, indices: int | list[int]) -> str | list[str]:
         if isinstance(indices, int):
             return self.idx_to_token[indices]

@@ -2,7 +2,7 @@ import torch
 from torch import nn, Tensor
 from utils.classfication import train, fashion_mnist
 from utils import TrainingLogger
-from utils.training_config import TrainingConfig
+from utils import TrainingConfig
 from typing import Dict, Any
 
 class Inception(nn.Module):
