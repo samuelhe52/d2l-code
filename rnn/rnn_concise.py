@@ -3,6 +3,7 @@ from torch import nn, Tensor
 from torch.nn import functional as F
 from typing import Tuple, Optional
 
+from utils import load_model
 from utils import TrainingConfig
 from utils.rnn import Vocab, train
 from utils.rnn.book_data import \
@@ -109,7 +110,7 @@ class RNNLM(nn.Module):
             if t < len(prefix) - 1:
                 outputs.append(vocab[prefix[t + 1]]) # Append the next token from prefix
             else:
-                outputs.append(int(Y.argmax(dim=2).item()))
+                outputs.append(int(Y.argmax(dim=1).item()))
         return ''.join([vocab.idx_to_token[i] for i in outputs])
 
 if __name__ == "__main__":
@@ -129,12 +130,22 @@ if __name__ == "__main__":
         num_epochs=100,
         lr=1,
         loss_fn=nn.CrossEntropyLoss(),
+        save_path='./models/rnnlm.pt',
         device=torch.device('cpu')
     )
     
-    train(
-        model,
-        dataloader=train_loader,
-        val_dataloader=val_loader,
-        config=config
-    )
+    # train(
+    #     model,
+    #     dataloader=train_loader,
+    #     val_dataloader=val_loader,
+    #     config=config
+    # )
+    
+    # Test generation
+    model = load_model('./models/rnnlm.pt', model)
+    print(model.generate(
+        prefix='time traveller ',
+        num_preds=50,
+        vocab=data.vocab,
+        device=torch.device('cpu')
+    ))

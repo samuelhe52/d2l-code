@@ -88,7 +88,7 @@ def visualize_activations(model: nn.Module, dataloader: Iterable, layer_index: i
 
 model_path = 'models/lenet.pt'
 model = LeNetModern()
-load_model(model, model_path)
+load_model(model_path, model)
 model.eval()
 dataloader = fashion_mnist(batch_size=10, train=False, data_root='data/')
 

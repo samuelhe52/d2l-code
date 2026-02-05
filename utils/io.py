@@ -22,12 +22,12 @@ def save_model(model: Module, save_path: PathLike) -> None:
     print(f'Model saved to {save_path}')
 
 
-def load_model(model: Module, load_path: PathLike) -> Module:
+def load_model(load_path: PathLike, model: Module) -> Module:
     """Load model parameters from a file.
     
     Args:
-        model: PyTorch model to load parameters into
         load_path: Path to the saved model parameters
+        model: PyTorch model to load parameters into
         
     Returns:
         The model with loaded parameters
