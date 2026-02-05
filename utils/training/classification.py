@@ -7,8 +7,8 @@ from torch import nn, Tensor
 from torch.optim import Optimizer
 
 from .base import BaseTrainer
-from ..training_config import TrainingConfig
-from ..training_logger import TrainingLogger
+from .config import TrainingConfig
+from .logger import TrainingLogger
 
 
 def accuracy(y_hat: Tensor, y: Tensor) -> float:

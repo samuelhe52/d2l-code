@@ -1,11 +1,13 @@
 """Shared training configuration utilities."""
 
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
-from .training_logger import TrainingLogger
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 import torch
 from torch.optim import Optimizer
+
+if TYPE_CHECKING:
+    from .logger import TrainingLogger
 
 
 @dataclass
@@ -21,7 +23,7 @@ class TrainingConfig:
     optimizer: Optional[Optimizer] = None
     save_path: Optional[str] = None
     verbose: bool = True
-    logger: Optional[TrainingLogger] = None
+    logger: Optional["TrainingLogger"] = None
     device: Optional[torch.device] = None
     grad_clip: Optional[float] = None  # Max norm for gradient clipping
 

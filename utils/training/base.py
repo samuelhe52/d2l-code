@@ -10,8 +10,8 @@ from torch.optim import Optimizer
 from tqdm import tqdm
 
 from ..io import save_model
-from ..training_config import TrainingConfig, resolve_training_config
-from ..training_logger import TrainingLogger
+from .config import TrainingConfig, resolve_training_config
+from .logger import TrainingLogger
 
 
 def get_device() -> torch.device:
