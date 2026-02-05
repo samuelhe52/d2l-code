@@ -21,9 +21,9 @@ env/
 *.pth
 *.ckpt
 
-# Data/logs
+# Data/logs (only at root level)
 logs/
-data/
+/data/
 
 # Editable install metadata
 *.egg-info/
