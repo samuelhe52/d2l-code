@@ -1,4 +1,4 @@
-"""Training utilities for classification tasks."""
+"""Training utilities for RNN models."""
 
 from typing import Iterable, Optional, overload
 
@@ -12,20 +12,17 @@ from ..io import save_model
 from ..training_logger import TrainingLogger
 from ..training_config import TrainingConfig, resolve_training_config
 
-
-def accuracy(y_hat: Tensor, y: Tensor) -> float:
-    """Compute the number of correct predictions.
+def perplexity(y_hat: Tensor, y: Tensor) -> float:
+    """Compute perplexity given model predictions and true labels.
 
     Args:
-        y_hat: Predicted logits of shape ``(batch_size, num_classes)``.
-        y: Ground-truth labels of shape ``(batch_size,)``.
-
+        y_hat: Predicted logits of shape (batch_size, vocab_size, seq_len).
+        y: True labels of shape (batch_size, seq_len).
     Returns:
-        Accuracy as a float in ``[0, 1]``.
+        Perplexity as a float.
     """
-    preds = y_hat.argmax(dim=1)
-    return (preds == y).type(torch.float).sum().item() / len(y)
-
+    cross_entropy = nn.CrossEntropyLoss()(y_hat, y).item()
+    return torch.exp(torch.tensor(cross_entropy)).item()
 
 @overload
 def train(
@@ -70,7 +67,7 @@ def train(
     device: torch.device | None = None,
     grad_clip: float | None = None,
 ) -> None:
-    """Train a classification model.
+    """Train an RNN model.
 
     This function supports two usage patterns:
 
@@ -126,40 +123,40 @@ def train(
     epoch_pbar = tqdm(range(cfg.num_epochs), desc='Training', unit='epoch')
     for epoch in epoch_pbar:
         model.train()  # Ensure model is in training mode
-        losses, accuracies = [], []
+        losses, ppls = [], []
         batch_pbar = tqdm(dataloader, desc=f'Epoch {epoch + 1}/{cfg.num_epochs}', leave=False)
         for X, y in batch_pbar:
             X = X.to(device)
             y = y.to(device)
             optimizer.zero_grad()
-            y_hat = model(X)
+            y_hat, _ = model(X)
             loss = loss_fn(y_hat, y)
             loss.backward()
             if cfg.grad_clip is not None:
                 nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
             optimizer.step()
             losses.append(loss.item())
-            accuracies.append(accuracy(y_hat, y))
-            batch_pbar.set_postfix(loss=f'{loss.item():.4f}', acc=f'{accuracies[-1]:.4f}')
+            ppls.append(perplexity(y_hat, y))
+            batch_pbar.set_postfix(loss=f'{loss.item():.4f}', ppl=f'{ppls[-1]:.4f}')
         
         avg_loss = sum(losses) / len(losses)
-        avg_acc = sum(accuracies) / len(accuracies)
+        avg_ppl = sum(ppls) / len(ppls)
         
         # Evaluate on validation set if provided
-        val_acc, val_loss = None, None
+        val_ppl, val_loss = None, None
         if val_dataloader is not None:
-            val_acc, val_loss = validate(model, val_dataloader, device=device, loss_fn=loss_fn)
-            epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', train=f'{avg_acc:.2%}', val=f'{val_acc:.2%}')
+            val_ppl, val_loss = validate(model, val_dataloader, device=device, loss_fn=loss_fn)
+            epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', train_ppl=f'{avg_ppl:.4f}', val_ppl=f'{val_ppl:.4f}')
             if cfg.verbose:
                 tqdm.write(f'Epoch {epoch + 1}/{cfg.num_epochs} — Loss: {avg_loss:.4f}, '
-                           f'Train: {avg_acc:.2%}, Val: {val_acc:.2%}')
+                           f'Train PPL: {avg_ppl:.4f}, Val PPL: {val_ppl:.4f}')
         else:
-            epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', acc=f'{avg_acc:.2%}')
+            epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', ppl=f'{avg_ppl:.4f}')
             if cfg.verbose:
-                tqdm.write(f'Epoch {epoch + 1}/{cfg.num_epochs} — Loss: {avg_loss:.4f}, Acc: {avg_acc:.2%}')
+                tqdm.write(f'Epoch {epoch + 1}/{cfg.num_epochs} — Loss: {avg_loss:.4f}, PPL: {avg_ppl:.4f}')
         
         if cfg.logger is not None:
-            cfg.logger.log_epoch(epoch, train_loss=avg_loss, train_acc=avg_acc, val_acc=val_acc, val_loss=val_loss)
+            cfg.logger.log_epoch(epoch, train_loss=avg_loss, train_ppl=avg_ppl, val_ppl=val_ppl, val_loss=val_loss)
     
     if cfg.save_path is not None:
         save_model(model, cfg.save_path)
@@ -176,7 +173,7 @@ def validate(model: nn.Module, dataloader: Iterable, device: Optional[torch.devi
         loss_fn: Loss function for computing validation loss (optional).
 
     Returns:
-        Tuple of (validation accuracy, validation loss). Loss is None if loss_fn not provided.
+        Tuple of (validation perplexity, validation loss). Loss is None if loss_fn not provided.
     """
     # Infer device if not explicitly provided
     if device is None:
@@ -189,16 +186,16 @@ def validate(model: nn.Module, dataloader: Iterable, device: Optional[torch.devi
 
     model.to(device)
     model.eval()
-    accuracies = []
+    ppls = []
     losses = []
     with torch.no_grad():
         for X, y in dataloader:
             X = X.to(device)
             y = y.to(device)
-            y_hat = model(X)
-            accuracies.append(accuracy(y_hat, y))
+            y_hat, _ = model(X)
+            ppls.append(perplexity(y_hat, y))
             if loss_fn is not None:
                 losses.append(loss_fn(y_hat, y).item())
-    avg_acc = sum(accuracies) / len(accuracies)
+    avg_ppl = sum(ppls) / len(ppls)
     avg_loss = sum(losses) / len(losses) if losses else None
-    return avg_acc, avg_loss
+    return avg_ppl, avg_loss

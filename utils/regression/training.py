@@ -35,6 +35,7 @@ def train(
     verbose: bool = True,
     logger: TrainingLogger | None = None,
     device: torch.device | None = None,
+    grad_clip: float | None = None,
 ) -> Tuple[float | None, float | None]: ...
 
 
@@ -52,6 +53,7 @@ def train(
     verbose: bool = True,
     logger: TrainingLogger | None = None,
     device: torch.device | None = None,
+    grad_clip: float | None = None,
 ) -> Tuple[float | None, float | None]:
     """Train a regression model.
 
@@ -77,6 +79,7 @@ def train(
         verbose: Whether to print per-epoch metrics.
         logger: Optional ``TrainingLogger`` to record metrics.
         device: Torch device; inferred if ``None``.
+        grad_clip: Max norm for gradient clipping. If ``None``, no clipping.
 
     Returns:
         Tuple of ``(train_loss, val_loss)`` for the final epoch. ``val_loss`` is
@@ -92,6 +95,7 @@ def train(
         verbose=verbose,
         logger=logger,
         device=device,
+        grad_clip=grad_clip,
     )
 
     device = cfg.device
@@ -125,6 +129,8 @@ def train(
             y_hat = model(X)
             loss = loss_fn(y_hat, y)
             loss.backward()
+            if cfg.grad_clip is not None:
+                nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
             optimizer.step()
             losses.append(loss.item())
             batch_pbar.set_postfix(loss=f'{loss.item():.4f}')

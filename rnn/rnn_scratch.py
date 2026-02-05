@@ -4,8 +4,7 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from typing import Optional, Tuple
 from utils import TrainingConfig
-from utils.classfication import train
-from utils.rnn import Vocab
+from utils.rnn import Vocab, train
 from utils.rnn.book_data import \
     book_data_loader, PrideAndPrejudiceData, TimeMachineData
     
@@ -76,19 +75,21 @@ class RNNScratch(nn.Module):
             H.append(state)
         return torch.stack(H), state
 
-    def forward(self, inputs: Tensor) -> Tensor:
+    def forward(self, inputs: Tensor, state: Optional[Tensor] = None) -> Tensor:
         """
         Forward pass through the RNN model.
 
         Args:
             inputs (Tensor): Input tensor of shape (batch_size, seq_len).
         Returns:
-            Tensor: Output tensor of shape (batch_size, vocab_size, seq_len).
+            Tuple[Tensor, Tensor]:
+                - Output tensor of shape (batch_size, vocab_size, seq_len).
+                - Final hidden state tensor of shape (batch_size, num_hiddens).
         """
         X = self.one_hot(inputs, self.vocab_size)
-        H, _ = self.rnn_forward(X)
-        output = self.output_layer(H)
-        return output
+        rnn_outputs, H = self.rnn_forward(X, state)
+        output = self.output_layer(rnn_outputs)
+        return output, H
         
     def output_layer(self, H: Tensor) -> Tensor:
         """
