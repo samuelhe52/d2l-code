@@ -1,15 +1,26 @@
-"""Training utilities for regression tasks."""
+"""Training utilities for regression tasks.
+
+This module provides backward-compatible ``train`` and ``validate`` functions.
+For new code, consider using ``RegressionTrainer`` directly::
+
+    from utils.training import RegressionTrainer
+
+    trainer = RegressionTrainer(model, train_loader, val_loader, config)
+    result = trainer.train()
+"""
 
 from typing import Iterable, Optional, Tuple, overload
 
 import torch
 from torch import nn, Tensor
 from torch.optim import Optimizer
-from tqdm import tqdm
 
-from ..io import save_model
+from ..training_config import TrainingConfig
 from ..training_logger import TrainingLogger
-from ..training_config import TrainingConfig, resolve_training_config
+from ..training import RegressionTrainer, get_device
+
+
+__all__ = ["train", "validate"]
 
 
 @overload
@@ -35,7 +46,6 @@ def train(
     verbose: bool = True,
     logger: TrainingLogger | None = None,
     device: torch.device | None = None,
-    grad_clip: float | None = None,
 ) -> Tuple[float | None, float | None]: ...
 
 
@@ -53,7 +63,6 @@ def train(
     verbose: bool = True,
     logger: TrainingLogger | None = None,
     device: torch.device | None = None,
-    grad_clip: float | None = None,
 ) -> Tuple[float | None, float | None]:
     """Train a regression model.
 
@@ -79,13 +88,15 @@ def train(
         verbose: Whether to print per-epoch metrics.
         logger: Optional ``TrainingLogger`` to record metrics.
         device: Torch device; inferred if ``None``.
-        grad_clip: Max norm for gradient clipping. If ``None``, no clipping.
 
     Returns:
         Tuple of ``(train_loss, val_loss)`` for the final epoch. ``val_loss`` is
         ``None`` when no validation dataloader is provided.
     """
-    cfg = resolve_training_config(
+    trainer = RegressionTrainer(
+        model,
+        dataloader,
+        val_dataloader,
         config,
         num_epochs=num_epochs,
         lr=lr,
@@ -95,73 +106,20 @@ def train(
         verbose=verbose,
         logger=logger,
         device=device,
-        grad_clip=grad_clip,
     )
+    result = trainer.train()
 
-    device = cfg.device
-    if device is None:
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            device = torch.device("mps")
-        else:
-            device = torch.device("cpu")
-
-    model.to(device)
-
-    loss_fn = cfg.loss_fn or nn.MSELoss()
-    if cfg.optimizer is None:
-        optimizer = torch.optim.SGD(model.parameters(), lr=cfg.lr)
-    else:
-        optimizer = cfg.optimizer
-    
-    epoch_pbar = tqdm(range(cfg.num_epochs), desc='Training', unit='epoch')
-    last_train_loss: float | None = None
-    last_val_loss: float | None = None
-    for epoch in epoch_pbar:
-        model.train()  # Ensure model is in training mode
-        losses = []
-        batch_pbar = tqdm(dataloader, desc=f'Epoch {epoch + 1}/{cfg.num_epochs}', leave=False)
-        for X, y in batch_pbar:
-            X = X.to(device)
-            y = y.to(device).reshape(-1, 1)
-            optimizer.zero_grad()
-            y_hat = model(X)
-            loss = loss_fn(y_hat, y)
-            loss.backward()
-            if cfg.grad_clip is not None:
-                nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
-            optimizer.step()
-            losses.append(loss.item())
-            batch_pbar.set_postfix(loss=f'{loss.item():.4f}')
-        
-        avg_loss = sum(losses) / len(losses)
-        last_train_loss = avg_loss
-        
-        # Evaluate on validation set if provided
-        val_loss = None
-        if val_dataloader is not None:
-            val_loss = validate(model, loss_fn, val_dataloader, device=device)
-            last_val_loss = val_loss
-            epoch_pbar.set_postfix(train=f'{avg_loss:.4f}', val=f'{val_loss:.4f}')
-            if cfg.verbose:
-                tqdm.write(f'Epoch {epoch + 1}/{cfg.num_epochs} — Loss: {avg_loss:.4f}, '
-                        f'Val Loss: {val_loss:.4f}')
-        else:
-            epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}')
-            if cfg.verbose:
-                tqdm.write(f'Epoch {epoch + 1}/{cfg.num_epochs} — Loss: {avg_loss:.4f}')
-        
-        if cfg.logger is not None:
-            cfg.logger.log_epoch(epoch, train_loss=avg_loss, val_loss=val_loss)
-    
-    if cfg.save_path is not None:
-        save_model(model, cfg.save_path)
-
-    return last_train_loss, last_val_loss
+    if result is None:
+        return None, None
+    return result.get("loss"), result.get("val_loss")
 
 
-def validate(model: nn.Module, loss_fn: nn.Module, dataloader: Iterable, device: Optional[torch.device] = None) -> float:
+def validate(
+    model: nn.Module,
+    loss_fn: nn.Module,
+    dataloader: Iterable,
+    device: Optional[torch.device] = None,
+) -> float:
     """Evaluate the model on a validation dataset.
 
     Args:
@@ -173,17 +131,10 @@ def validate(model: nn.Module, loss_fn: nn.Module, dataloader: Iterable, device:
     Returns:
         Average validation loss.
     """
-    # Infer device if not explicitly provided
-    if device is None:
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            device = torch.device("mps")
-        else:
-            device = torch.device("cpu")
-
+    device = device or get_device()
     model.to(device)
     model.eval()
+
     losses = []
     with torch.no_grad():
         for X, y in dataloader:
@@ -192,5 +143,5 @@ def validate(model: nn.Module, loss_fn: nn.Module, dataloader: Iterable, device:
             y_hat = model(X)
             loss = loss_fn(y_hat, y)
             losses.append(loss.item())
-    avg_loss = sum(losses) / len(losses)
-    return avg_loss
+
+    return sum(losses) / len(losses)

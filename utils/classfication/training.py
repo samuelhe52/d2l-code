@@ -1,30 +1,28 @@
-"""Training utilities for classification tasks."""
+"""Training utilities for classification tasks.
+
+This module provides backward-compatible ``train`` and ``validate`` functions.
+For new code, consider using ``ClassificationTrainer`` directly::
+
+    from utils.training import ClassificationTrainer
+
+    trainer = ClassificationTrainer(model, train_loader, val_loader, config)
+    trainer.train()
+"""
 
 from typing import Iterable, Optional, overload
 
 import torch
 from torch import nn, Tensor
 from torch.optim import Optimizer
-from torch.utils.data import DataLoader
-from tqdm import tqdm
 
-from ..io import save_model
+from ..training_config import TrainingConfig
 from ..training_logger import TrainingLogger
-from ..training_config import TrainingConfig, resolve_training_config
+from ..training import ClassificationTrainer, get_device
+from ..training.classification import accuracy
 
 
-def accuracy(y_hat: Tensor, y: Tensor) -> float:
-    """Compute the number of correct predictions.
-
-    Args:
-        y_hat: Predicted logits of shape ``(batch_size, num_classes)``.
-        y: Ground-truth labels of shape ``(batch_size,)``.
-
-    Returns:
-        Accuracy as a float in ``[0, 1]``.
-    """
-    preds = y_hat.argmax(dim=1)
-    return (preds == y).type(torch.float).sum().item() / len(y)
+# Re-export accuracy for backward compatibility
+__all__ = ["train", "validate", "accuracy"]
 
 
 @overload
@@ -50,7 +48,6 @@ def train(
     verbose: bool = True,
     logger: TrainingLogger | None = None,
     device: torch.device | None = None,
-    grad_clip: float | None = None,
 ) -> None: ...
 
 
@@ -68,14 +65,13 @@ def train(
     verbose: bool = True,
     logger: TrainingLogger | None = None,
     device: torch.device | None = None,
-    grad_clip: float | None = None,
 ) -> None:
     """Train a classification model.
 
     This function supports two usage patterns:
 
     **Preferred (config-based):**
-        >>> train(model, train_loader, config=cfg, val_dataloader=val_loader)
+        >>> train(model, train_loader, val_loader, config)
 
     **Legacy (explicit params):**
         >>> train(model, train_loader, num_epochs=10, lr=0.01, ...)
@@ -94,9 +90,11 @@ def train(
         verbose: Whether to print per-epoch metrics.
         logger: Optional ``TrainingLogger`` to record metrics.
         device: Torch device; inferred if ``None``.
-        grad_clip: Max norm for gradient clipping. If ``None``, no clipping.
     """
-    cfg = resolve_training_config(
+    trainer = ClassificationTrainer(
+        model,
+        dataloader,
+        val_dataloader,
         config,
         num_epochs=num_epochs,
         lr=lr,
@@ -106,67 +104,16 @@ def train(
         verbose=verbose,
         logger=logger,
         device=device,
-        grad_clip=grad_clip,
     )
-
-    device = cfg.device
-    # Infer device if not explicitly provided
-    if device is None:
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            device = torch.device("mps")
-        else:
-            device = torch.device("cpu")
-
-    model.to(device)
-    loss_fn = cfg.loss_fn or nn.CrossEntropyLoss()
-    optimizer = cfg.optimizer or torch.optim.SGD(model.parameters(), lr=cfg.lr)
-    
-    epoch_pbar = tqdm(range(cfg.num_epochs), desc='Training', unit='epoch')
-    for epoch in epoch_pbar:
-        model.train()  # Ensure model is in training mode
-        losses, accuracies = [], []
-        batch_pbar = tqdm(dataloader, desc=f'Epoch {epoch + 1}/{cfg.num_epochs}', leave=False)
-        for X, y in batch_pbar:
-            X = X.to(device)
-            y = y.to(device)
-            optimizer.zero_grad()
-            y_hat = model(X)
-            loss = loss_fn(y_hat, y)
-            loss.backward()
-            if cfg.grad_clip is not None:
-                nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
-            optimizer.step()
-            losses.append(loss.item())
-            accuracies.append(accuracy(y_hat, y))
-            batch_pbar.set_postfix(loss=f'{loss.item():.4f}', acc=f'{accuracies[-1]:.4f}')
-        
-        avg_loss = sum(losses) / len(losses)
-        avg_acc = sum(accuracies) / len(accuracies)
-        
-        # Evaluate on validation set if provided
-        val_acc, val_loss = None, None
-        if val_dataloader is not None:
-            val_acc, val_loss = validate(model, val_dataloader, device=device, loss_fn=loss_fn)
-            epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', train=f'{avg_acc:.2%}', val=f'{val_acc:.2%}')
-            if cfg.verbose:
-                tqdm.write(f'Epoch {epoch + 1}/{cfg.num_epochs} — Loss: {avg_loss:.4f}, '
-                           f'Train: {avg_acc:.2%}, Val: {val_acc:.2%}')
-        else:
-            epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', acc=f'{avg_acc:.2%}')
-            if cfg.verbose:
-                tqdm.write(f'Epoch {epoch + 1}/{cfg.num_epochs} — Loss: {avg_loss:.4f}, Acc: {avg_acc:.2%}')
-        
-        if cfg.logger is not None:
-            cfg.logger.log_epoch(epoch, train_loss=avg_loss, train_acc=avg_acc, val_acc=val_acc, val_loss=val_loss)
-    
-    if cfg.save_path is not None:
-        save_model(model, cfg.save_path)
+    trainer.train()
 
 
-def validate(model: nn.Module, dataloader: Iterable, device: Optional[torch.device] = None,
-             loss_fn: Optional[nn.Module] = None) -> tuple[float, float | None]:
+def validate(
+    model: nn.Module,
+    dataloader: Iterable,
+    device: Optional[torch.device] = None,
+    loss_fn: Optional[nn.Module] = None,
+) -> tuple[float, float | None]:
     """Evaluate the model on a validation dataset.
 
     Args:
@@ -178,19 +125,13 @@ def validate(model: nn.Module, dataloader: Iterable, device: Optional[torch.devi
     Returns:
         Tuple of (validation accuracy, validation loss). Loss is None if loss_fn not provided.
     """
-    # Infer device if not explicitly provided
-    if device is None:
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            device = torch.device("mps")
-        else:
-            device = torch.device("cpu")
-
+    device = device or get_device()
     model.to(device)
     model.eval()
+
     accuracies = []
     losses = []
+
     with torch.no_grad():
         for X, y in dataloader:
             X = X.to(device)
@@ -199,6 +140,7 @@ def validate(model: nn.Module, dataloader: Iterable, device: Optional[torch.devi
             accuracies.append(accuracy(y_hat, y))
             if loss_fn is not None:
                 losses.append(loss_fn(y_hat, y).item())
+
     avg_acc = sum(accuracies) / len(accuracies)
     avg_loss = sum(losses) / len(losses) if losses else None
     return avg_acc, avg_loss

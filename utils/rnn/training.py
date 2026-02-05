@@ -1,28 +1,29 @@
-"""Training utilities for RNN models."""
+"""Training utilities for RNN models.
+
+This module provides backward-compatible ``train`` and ``validate`` functions.
+For new code, consider using ``RNNTrainer`` directly::
+
+    from utils.training import RNNTrainer
+
+    trainer = RNNTrainer(model, train_loader, val_loader, config)
+    trainer.train()
+"""
 
 from typing import Iterable, Optional, overload
 
 import torch
 from torch import nn, Tensor
 from torch.optim import Optimizer
-from torch.utils.data import DataLoader
-from tqdm import tqdm
 
-from ..io import save_model
+from ..training_config import TrainingConfig
 from ..training_logger import TrainingLogger
-from ..training_config import TrainingConfig, resolve_training_config
+from ..training import RNNTrainer, get_device
+from ..training.rnn import perplexity
 
-def perplexity(y_hat: Tensor, y: Tensor) -> float:
-    """Compute perplexity given model predictions and true labels.
 
-    Args:
-        y_hat: Predicted logits of shape (batch_size, vocab_size, seq_len).
-        y: True labels of shape (batch_size, seq_len).
-    Returns:
-        Perplexity as a float.
-    """
-    cross_entropy = nn.CrossEntropyLoss()(y_hat, y).item()
-    return torch.exp(torch.tensor(cross_entropy)).item()
+# Re-export perplexity for backward compatibility
+__all__ = ["train", "validate", "perplexity"]
+
 
 @overload
 def train(
@@ -72,7 +73,7 @@ def train(
     This function supports two usage patterns:
 
     **Preferred (config-based):**
-        >>> train(model, train_loader, config=cfg, val_dataloader=val_loader)
+        >>> train(model, train_loader, val_loader, config)
 
     **Legacy (explicit params):**
         >>> train(model, train_loader, num_epochs=10, lr=0.01, ...)
@@ -93,7 +94,10 @@ def train(
         device: Torch device; inferred if ``None``.
         grad_clip: Max norm for gradient clipping. If ``None``, no clipping.
     """
-    cfg = resolve_training_config(
+    trainer = RNNTrainer(
+        model,
+        dataloader,
+        val_dataloader,
         config,
         num_epochs=num_epochs,
         lr=lr,
@@ -105,65 +109,15 @@ def train(
         device=device,
         grad_clip=grad_clip,
     )
-
-    device = cfg.device
-    # Infer device if not explicitly provided
-    if device is None:
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            device = torch.device("mps")
-        else:
-            device = torch.device("cpu")
-
-    model.to(device)
-    loss_fn = cfg.loss_fn or nn.CrossEntropyLoss()
-    optimizer = cfg.optimizer or torch.optim.SGD(model.parameters(), lr=cfg.lr)
-    
-    epoch_pbar = tqdm(range(cfg.num_epochs), desc='Training', unit='epoch')
-    for epoch in epoch_pbar:
-        model.train()  # Ensure model is in training mode
-        losses, ppls = [], []
-        batch_pbar = tqdm(dataloader, desc=f'Epoch {epoch + 1}/{cfg.num_epochs}', leave=False)
-        for X, y in batch_pbar:
-            X = X.to(device)
-            y = y.to(device)
-            optimizer.zero_grad()
-            y_hat, _ = model(X)
-            loss = loss_fn(y_hat, y)
-            loss.backward()
-            if cfg.grad_clip is not None:
-                nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip)
-            optimizer.step()
-            losses.append(loss.item())
-            ppls.append(perplexity(y_hat, y))
-            batch_pbar.set_postfix(loss=f'{loss.item():.4f}', ppl=f'{ppls[-1]:.4f}')
-        
-        avg_loss = sum(losses) / len(losses)
-        avg_ppl = sum(ppls) / len(ppls)
-        
-        # Evaluate on validation set if provided
-        val_ppl, val_loss = None, None
-        if val_dataloader is not None:
-            val_ppl, val_loss = validate(model, val_dataloader, device=device, loss_fn=loss_fn)
-            epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', train_ppl=f'{avg_ppl:.4f}', val_ppl=f'{val_ppl:.4f}')
-            if cfg.verbose:
-                tqdm.write(f'Epoch {epoch + 1}/{cfg.num_epochs} — Loss: {avg_loss:.4f}, '
-                           f'Train PPL: {avg_ppl:.4f}, Val PPL: {val_ppl:.4f}')
-        else:
-            epoch_pbar.set_postfix(loss=f'{avg_loss:.4f}', ppl=f'{avg_ppl:.4f}')
-            if cfg.verbose:
-                tqdm.write(f'Epoch {epoch + 1}/{cfg.num_epochs} — Loss: {avg_loss:.4f}, PPL: {avg_ppl:.4f}')
-        
-        if cfg.logger is not None:
-            cfg.logger.log_epoch(epoch, train_loss=avg_loss, train_ppl=avg_ppl, val_ppl=val_ppl, val_loss=val_loss)
-    
-    if cfg.save_path is not None:
-        save_model(model, cfg.save_path)
+    trainer.train()
 
 
-def validate(model: nn.Module, dataloader: Iterable, device: Optional[torch.device] = None,
-             loss_fn: Optional[nn.Module] = None) -> tuple[float, float | None]:
+def validate(
+    model: nn.Module,
+    dataloader: Iterable,
+    device: Optional[torch.device] = None,
+    loss_fn: Optional[nn.Module] = None,
+) -> tuple[float, float | None]:
     """Evaluate the model on a validation dataset.
 
     Args:
@@ -175,19 +129,13 @@ def validate(model: nn.Module, dataloader: Iterable, device: Optional[torch.devi
     Returns:
         Tuple of (validation perplexity, validation loss). Loss is None if loss_fn not provided.
     """
-    # Infer device if not explicitly provided
-    if device is None:
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            device = torch.device("mps")
-        else:
-            device = torch.device("cpu")
-
+    device = device or get_device()
     model.to(device)
     model.eval()
+
     ppls = []
     losses = []
+
     with torch.no_grad():
         for X, y in dataloader:
             X = X.to(device)
@@ -196,6 +144,7 @@ def validate(model: nn.Module, dataloader: Iterable, device: Optional[torch.devi
             ppls.append(perplexity(y_hat, y))
             if loss_fn is not None:
                 losses.append(loss_fn(y_hat, y).item())
+
     avg_ppl = sum(ppls) / len(ppls)
     avg_loss = sum(losses) / len(losses) if losses else None
     return avg_ppl, avg_loss
