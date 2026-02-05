@@ -1,5 +1,9 @@
 from utils.data import Vocab
-from utils.data import book_data_loader, TimeMachineData, PrideAndPrejudiceData
+from utils.data import (
+    book_data_loader,
+    TimeMachineData,
+    PrideAndPrejudiceData,
+)
 
 
 if __name__ == "__main__":

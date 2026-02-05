@@ -5,7 +5,12 @@ from typing import Tuple, Optional
 
 from utils.io import load_model
 from utils.training import RNNTrainer, TrainingConfig
-from utils.data import Vocab, book_data_loader, TimeMachineData, PrideAndPrejudiceData
+from utils.data import (
+    Vocab,
+    book_data_loader,
+    TimeMachineData,
+    PrideAndPrejudiceData,
+)
 
 class RNNLM(nn.Module):
     """

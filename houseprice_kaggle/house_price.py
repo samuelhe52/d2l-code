@@ -1,7 +1,11 @@
 import torch
 from torch import nn, Tensor
 from typing import Iterable, List, Sequence, Tuple, Dict, Any
-from utils.training import RegressionTrainer, TrainingLogger, TrainingConfig
+from utils.training import (
+    RegressionTrainer,
+    TrainingLogger,
+    TrainingConfig,
+)
 from tqdm import tqdm
 
 try:

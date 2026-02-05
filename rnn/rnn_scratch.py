@@ -4,7 +4,12 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from typing import Optional, Tuple
 from utils.training import RNNTrainer, TrainingConfig
-from utils.data import Vocab, book_data_loader, PrideAndPrejudiceData, TimeMachineData
+from utils.data import (
+    Vocab,
+    book_data_loader,
+    PrideAndPrejudiceData,
+    TimeMachineData,
+)
     
 class RNNScratch(nn.Module):
     """

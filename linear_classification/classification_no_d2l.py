@@ -1,5 +1,9 @@
 from torch import nn, Tensor
-from utils.training import ClassificationTrainer, TrainingLogger, TrainingConfig
+from utils.training import (
+    ClassificationTrainer,
+    TrainingLogger,
+    TrainingConfig,
+)
 from utils.data import fashion_mnist
 
 class MNISTSoftmax(nn.Module):

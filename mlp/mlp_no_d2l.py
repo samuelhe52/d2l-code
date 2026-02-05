@@ -1,7 +1,11 @@
 import torch
 from torch import nn, Tensor
 from typing import Any, Dict
-from utils.training import ClassificationTrainer, TrainingLogger, TrainingConfig
+from utils.training import (
+    ClassificationTrainer,
+    TrainingLogger,
+    TrainingConfig,
+)
 from utils.data import fashion_mnist
 
 
