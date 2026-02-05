@@ -1,7 +1,7 @@
 from torch import nn, Tensor
-from utils.classfication import train
+from utils.training import ClassificationTrainer
 from utils.data import fashion_mnist
-from utils import TrainingLogger
+from utils import TrainingLogger, TrainingConfig
 
 class MNISTSoftmax(nn.Module):
     """
@@ -35,8 +35,14 @@ if __name__ == "__main__":
         }
     )
     
-    train(model, train_loader, num_epochs, lr,
-          val_dataloader=val_loader, logger=logger)
+    config = TrainingConfig(
+        num_epochs=num_epochs,
+        lr=lr,
+        logger=logger,
+    )
+    
+    trainer = ClassificationTrainer(model, train_loader, val_loader, config)
+    trainer.train()
     
     logger.summary()
     # Persist log to disk

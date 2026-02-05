@@ -1,8 +1,8 @@
 import torch
 from torch import nn, Tensor
 from typing import Iterable, List, Sequence, Tuple, Dict, Any
-from utils.regression import train
-from utils import TrainingLogger
+from utils.training import RegressionTrainer
+from utils import TrainingLogger, TrainingConfig
 from tqdm import tqdm
 
 try:
@@ -118,17 +118,17 @@ if __name__ == "__main__":
             lr=hparams['lr'],
             weight_decay=hparams['weight_decay']
         )
-        _, val_loss = train(
-            model,
-            train_loader,
+        config = TrainingConfig(
             num_epochs=hparams['num_epochs'],
             lr=hparams['lr'],
             optimizer=optim,
             verbose=False,
-            logger=logger if i == len(loaders) - 1 else None, # Log only last fold
-            val_dataloader=val_loader,
-            device=torch.device('cpu')
+            logger=logger if i == len(loaders) - 1 else None,
+            device=torch.device('cpu'),
         )
+        trainer = RegressionTrainer(model, train_loader, val_loader, config)
+        result = trainer.train()
+        val_loss = result.get('val_loss') if result else None
 
         models.append((model, val_loss))
     

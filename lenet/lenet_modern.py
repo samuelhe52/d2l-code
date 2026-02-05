@@ -1,8 +1,8 @@
 import torch
 from torch import nn, Tensor
 from typing import Any, Dict
-from utils import TrainingLogger
-from utils.classfication import train
+from utils import TrainingLogger, TrainingConfig
+from utils.training import ClassificationTrainer
 from utils.data import fashion_mnist
 
 class LeNetModern(nn.Module):
@@ -66,10 +66,18 @@ if __name__ == "__main__":
                 
     model.apply(init_weights)
     
-    train(model, dataloader=dataloader, num_epochs=num_epochs,
-          lr=lr, loss_fn=nn.CrossEntropyLoss(),
-          optimizer=optimizer, logger=logger, save_path='models/lenet.pt',
-          val_dataloader=val_dataloader, device=device)
+    config = TrainingConfig(
+        num_epochs=num_epochs,
+        lr=lr,
+        loss_fn=nn.CrossEntropyLoss(),
+        optimizer=optimizer,
+        logger=logger,
+        save_path='models/lenet.pt',
+        device=device,
+    )
+    
+    trainer = ClassificationTrainer(model, dataloader, val_dataloader, config)
+    trainer.train()
 
     logger.summary()
     logger.save()

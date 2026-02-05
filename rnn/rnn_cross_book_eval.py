@@ -10,7 +10,8 @@ from utils.data import (
     WarOfTheWorldsData,
     book_data_loader,
 )
-from utils.rnn.training import validate
+from utils.training import RNNTrainer
+from utils import TrainingConfig
 
 
 def get_device() -> torch.device:
@@ -35,7 +36,10 @@ def evaluate_dataset(
         loader = book_data_loader(dataset, batch_size=batch_size, train=False)
     else:
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
-    ppl, _ = validate(model, loader, device=device, loss_fn=nn.CrossEntropyLoss())
+    config = TrainingConfig(num_epochs=1, lr=0.01, loss_fn=nn.CrossEntropyLoss(), device=device)
+    trainer = RNNTrainer(model, loader, None, config)
+    metrics = trainer.validate()
+    ppl = metrics.get('val_ppl', 0.0)
     print(f"{desc} perplexity: {ppl:.2f}")
     return ppl
 

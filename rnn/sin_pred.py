@@ -1,6 +1,7 @@
 import torch
 from torch import nn, Tensor
-from utils.regression import train, validate
+from utils.training import RegressionTrainer
+from utils import TrainingConfig
 from torch.utils.data import DataLoader, Dataset
 from typing import Tuple
 
@@ -90,7 +91,9 @@ if __name__ == "__main__":
     test_loader = get_dataloader(batch_size=batch_size, train=False)
 
     model = LinearRegression(seq_len=4)
-    train(model, train_loader, num_epochs, lr, device=torch.device('cpu'))
+    config = TrainingConfig(num_epochs=num_epochs, lr=lr, device=torch.device('cpu'))
+    trainer = RegressionTrainer(model, train_loader, None, config)
+    trainer.train()
     
     import matplotlib.pyplot as plt
     model.eval()
@@ -132,5 +135,7 @@ if __name__ == "__main__":
     
 
     # Evaluate on test data
-    avg_loss = validate(model, loss_fn=nn.MSELoss(), dataloader=test_loader)
+    trainer_eval = RegressionTrainer(model, test_loader, None, TrainingConfig(num_epochs=1, lr=0.01))
+    metrics = trainer_eval.validate()
+    avg_loss = metrics.get('val_loss', 0.0)
     print(f"Test MSE Loss: {avg_loss:.4f}")
