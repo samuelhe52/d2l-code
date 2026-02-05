@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from typing import Iterable
-from utils import load_model
+from utils.io import load_model
 from utils.data import fashion_mnist
 from pathlib import Path
 

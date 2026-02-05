@@ -1,8 +1,7 @@
 import torch
 from torch import nn, Tensor
 from typing import Any, Dict
-from utils import TrainingLogger, TrainingConfig
-from utils.training import ClassificationTrainer
+from utils.training import ClassificationTrainer, TrainingLogger, TrainingConfig
 from utils.data import fashion_mnist
 
 class LeNetModern(nn.Module):

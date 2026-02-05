@@ -2,9 +2,7 @@ import torch
 from torch import nn, Tensor
 from typing import Any, Dict
 from utils.data import fashion_mnist
-from utils.training import ClassificationTrainer
-from utils import TrainingLogger
-from utils import TrainingConfig
+from utils.training import ClassificationTrainer, TrainingLogger, TrainingConfig
 
 class AlexNet(nn.Module):
     def __init__(self, num_classes: int = 10):

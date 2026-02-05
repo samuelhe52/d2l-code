@@ -2,9 +2,7 @@ import torch
 from torch import nn, Tensor
 from typing import List, Tuple, Any, Dict
 from utils.data import fashion_mnist
-from utils.training import ClassificationTrainer
-from utils import TrainingLogger
-from utils import TrainingConfig
+from utils.training import ClassificationTrainer, TrainingLogger, TrainingConfig
 
 def vgg_block(num_convs: int, out_channels: int) -> nn.Sequential:
     layers: List[nn.Module] = []

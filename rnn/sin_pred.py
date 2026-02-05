@@ -1,7 +1,6 @@
 import torch
 from torch import nn, Tensor
-from utils.training import RegressionTrainer
-from utils import TrainingConfig
+from utils.training import RegressionTrainer, TrainingConfig
 from torch.utils.data import DataLoader, Dataset
 from typing import Tuple
 

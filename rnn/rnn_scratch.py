@@ -3,10 +3,8 @@ from torch import nn, Tensor
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from typing import Optional, Tuple
-from utils import TrainingConfig
-from utils.data import Vocab
-from utils.data import book_data_loader, PrideAndPrejudiceData, TimeMachineData
-from utils.training import RNNTrainer
+from utils.training import RNNTrainer, TrainingConfig
+from utils.data import Vocab, book_data_loader, PrideAndPrejudiceData, TimeMachineData
     
 class RNNScratch(nn.Module):
     """

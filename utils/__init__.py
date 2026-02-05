@@ -1,13 +1,7 @@
-"""Utility functions for the d2l-code project."""
+"""Utility functions for the d2l-code project.
 
-from typing import List
-
-from .io import load_model, save_model
-from .training import TrainingLogger, TrainingConfig
-
-__all__: List[str] = [
-    'save_model',
-    'load_model',
-    'TrainingLogger',
-    'TrainingConfig',
-    ]
+All utilities are organized into submodules:
+- utils.training: Training utilities (BaseTrainer, ClassificationTrainer, etc.)
+- utils.data: Data loading utilities (fashion_mnist, Vocab, BookData, etc.)
+- utils.io: Model I/O utilities (load_model, save_model)
+"""

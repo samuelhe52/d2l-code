@@ -3,15 +3,14 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from rnn_concise import RNNLM
-from utils import load_model
+from utils.io import load_model
+from utils.training import RNNTrainer, TrainingConfig
 from utils.data import (
     TimeMachineData,
     PrideAndPrejudiceData,
     WarOfTheWorldsData,
     book_data_loader,
 )
-from utils.training import RNNTrainer
-from utils import TrainingConfig
 
 
 def get_device() -> torch.device:

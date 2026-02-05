@@ -3,11 +3,9 @@ from torch import nn, Tensor
 from torch.nn import functional as F
 from typing import Tuple, Optional
 
-from utils import load_model
-from utils import TrainingConfig
-from utils.data import Vocab
-from utils.data import book_data_loader, TimeMachineData, PrideAndPrejudiceData
-from utils.training import RNNTrainer
+from utils.io import load_model
+from utils.training import RNNTrainer, TrainingConfig
+from utils.data import Vocab, book_data_loader, TimeMachineData, PrideAndPrejudiceData
 
 class RNNLM(nn.Module):
     """
