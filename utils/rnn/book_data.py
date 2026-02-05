@@ -21,7 +21,7 @@ class BookData(Dataset):
     """
     def __init__(self, seq_len: int = 35, *, book_name: str,
                  book_url: str, md5_hash: str, data_root: str = './data',
-                 use_chars: bool = True):
+                 use_chars: bool = True, vocab: Vocab | None = None):
         super().__init__()
         self.book_name = book_name
         self.book_url = book_url
@@ -31,7 +31,9 @@ class BookData(Dataset):
         self.text = self._load_data_str(data_root)
         self.processed_text = self._preprocess_text(self.text)
         self.tokens = self._tokenize(self.processed_text, use_chars=use_chars)
-        self.vocab = Vocab(self.tokens)
+        # Reuse a supplied vocabulary to align with a previously trained model
+        # (e.g., evaluating on a new book with the Time Machine vocabulary).
+        self.vocab = vocab if vocab is not None else Vocab(self.tokens)
         self.corpus = [self.vocab[token] for token in self.tokens]
 
         self.features, self.labels = self._create_features_and_labels(seq_len)
@@ -156,7 +158,8 @@ class PrideAndPrejudiceData(BookData):
         use_chars (bool): Whether to tokenize the text into 
             characters (True) or words (False).
     """
-    def __init__(self, seq_len: int, data_root: str = './data', use_chars: bool = True):
+    def __init__(self, seq_len: int, data_root: str = './data',
+                 use_chars: bool = True, vocab: Vocab | None = None):
         super().__init__(
             seq_len=seq_len,
             book_name='pride_and_prejudice',
@@ -164,10 +167,49 @@ class PrideAndPrejudiceData(BookData):
             md5_hash='9ec834c0167fbb97231ffa192f75b09a',
             data_root=data_root,
             use_chars=use_chars,
+            vocab=vocab,
         )
 
     def _preprocess_text(self, text: str) -> str:
         # Strip Gutenberg header/footer when present to keep only the novel body.
+        header_pattern = r"\*\*\* START OF (?:THIS|THE) PROJECT GUTENBERG EBOOK.*\n"
+        footer_pattern = r"\*\*\* END OF (?:THIS|THE) PROJECT GUTENBERG EBOOK.*"
+        start = re.search(header_pattern, text)
+        end = re.search(footer_pattern, text)
+        if start and end:
+            text = text[start.end():end.start()]
+
+        text = text.lower()
+        text = re.sub(r'[^a-z\s]', ' ', text)
+        return text.strip()
+
+
+class WarOfTheWorldsData(BookData):
+    """
+    Dataset for H.G. Wells' "The War of the Worlds".
+
+    Args:
+        seq_len (int): Length of each sequence sample.
+        data_root (str): Root directory for storing/loading the dataset.
+        use_chars (bool): Whether to tokenize the text into 
+            characters (True) or words (False).
+        vocab (Vocab | None): Optional vocabulary to reuse for consistent
+            token indices across books.
+    """
+    def __init__(self, seq_len: int, data_root: str = './data',
+                 use_chars: bool = True, vocab: Vocab | None = None):
+        super().__init__(
+            seq_len=seq_len,
+            book_name='war_of_the_worlds',
+            book_url='https://www.gutenberg.org/cache/epub/36/pg36.txt',
+            md5_hash='5d0de2070465618da7d621e309e1a164',
+            data_root=data_root,
+            use_chars=use_chars,
+            vocab=vocab,
+        )
+
+    def _preprocess_text(self, text: str) -> str:
+        # Strip Gutenberg boilerplate when present to keep only the novel body.
         header_pattern = r"\*\*\* START OF (?:THIS|THE) PROJECT GUTENBERG EBOOK.*\n"
         footer_pattern = r"\*\*\* END OF (?:THIS|THE) PROJECT GUTENBERG EBOOK.*"
         start = re.search(header_pattern, text)
