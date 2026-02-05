@@ -5,9 +5,10 @@ from typing import Tuple, Optional
 
 from utils import load_model
 from utils import TrainingConfig
-from utils.rnn import Vocab, train
+from utils.rnn import Vocab
 from utils.rnn.book_data import \
     book_data_loader, TimeMachineData, PrideAndPrejudiceData
+from utils.training import RNNTrainer
 
 class RNNLM(nn.Module):
     """
@@ -134,12 +135,8 @@ if __name__ == "__main__":
         device=torch.device('cpu')
     )
     
-    # train(
-    #     model,
-    #     dataloader=train_loader,
-    #     val_dataloader=val_loader,
-    #     config=config
-    # )
+    # trainer = RNNTrainer(model, train_loader, val_loader, config)
+    # trainer.train()
     
     # Test generation
     model = load_model('./models/rnnlm.pt', model)

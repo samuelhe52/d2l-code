@@ -4,7 +4,8 @@
 import torch
 from torch import nn, Tensor
 from typing import List, Tuple, Any, Dict
-from utils.classfication import train, fashion_mnist
+from utils.classfication import fashion_mnist
+from utils.training import ClassificationTrainer
 from utils import TrainingLogger, TrainingConfig
 
 def vgg_block(num_convs: int, out_channels: int, pool: bool = True) -> nn.Sequential:
@@ -71,12 +72,8 @@ if __name__ == "__main__":
         logger=logger,
     )
 
-    train(
-        model,
-        dataloader=dataloader,
-        val_dataloader=val_dataloader,
-        config=config,
-    )
+    trainer = ClassificationTrainer(model, dataloader, val_dataloader, config)
+    trainer.train()
     
     logger.summary()
     logger.save()

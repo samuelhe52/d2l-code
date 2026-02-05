@@ -1,7 +1,8 @@
 import torch
 from torch import nn, Tensor
 from typing import Any, Dict
-from utils.classfication import train, fashion_mnist
+from utils.classfication import fashion_mnist
+from utils.training import ClassificationTrainer
 from utils import TrainingLogger
 from utils import TrainingConfig
 
@@ -63,12 +64,8 @@ if __name__ == "__main__":
         logger=logger,
     )
 
-    train(
-        model,
-        dataloader=dataloader,
-        val_dataloader=val_dataloader,
-        config=config,
-    )
+    trainer = ClassificationTrainer(model, dataloader, val_dataloader, config)
+    trainer.train()
     
     logger.summary()
     logger.save()
