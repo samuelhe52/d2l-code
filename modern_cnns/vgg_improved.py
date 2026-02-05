@@ -4,7 +4,7 @@
 import torch
 from torch import nn, Tensor
 from typing import List, Tuple, Any, Dict
-from utils.classfication import fashion_mnist
+from utils.data import fashion_mnist
 from utils.training import ClassificationTrainer
 from utils import TrainingLogger, TrainingConfig
 

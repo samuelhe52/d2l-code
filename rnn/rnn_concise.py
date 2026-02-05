@@ -5,9 +5,8 @@ from typing import Tuple, Optional
 
 from utils import load_model
 from utils import TrainingConfig
-from utils.rnn import Vocab
-from utils.rnn.book_data import \
-    book_data_loader, TimeMachineData, PrideAndPrejudiceData
+from utils.data import Vocab
+from utils.data import book_data_loader, TimeMachineData, PrideAndPrejudiceData
 from utils.training import RNNTrainer
 
 class RNNLM(nn.Module):

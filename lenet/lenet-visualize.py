@@ -3,7 +3,7 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 from typing import Iterable
 from utils import load_model
-from utils.classfication import fashion_mnist
+from utils.data import fashion_mnist
 from pathlib import Path
 
 # Add this file's folder to the path so we can import the model next to it.

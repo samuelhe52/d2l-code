@@ -2,7 +2,8 @@ import torch
 from torch import nn, Tensor
 from typing import Any, Dict
 from utils import TrainingLogger
-from utils.classfication import train, fashion_mnist
+from utils.classfication import train
+from utils.data import fashion_mnist
 
 class LeNetModern(nn.Module):
     def __init__(self, num_classes: int = 10):

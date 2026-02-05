@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 
 from rnn_concise import RNNLM
 from utils import load_model
-from utils.rnn.book_data import (
+from utils.data import (
     TimeMachineData,
     PrideAndPrejudiceData,
     WarOfTheWorldsData,

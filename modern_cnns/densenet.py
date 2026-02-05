@@ -1,7 +1,7 @@
 import torch
 from torch import nn, Tensor
 from torch.nn import functional as F
-from utils.classfication import fashion_mnist
+from utils.data import fashion_mnist
 from utils.training import ClassificationTrainer
 from utils import TrainingLogger
 from utils import TrainingConfig
