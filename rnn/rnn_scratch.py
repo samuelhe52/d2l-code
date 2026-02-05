@@ -78,7 +78,8 @@ class RNNScratch(nn.Module):
             H.append(state)
         return torch.stack(H), state
 
-    def forward(self, inputs: Tensor, state: Optional[Tensor] = None) -> Tensor:
+    def forward(self, inputs: Tensor, state: Optional[Tensor] = None) \
+        -> Tuple[Tensor, Tensor]:
         """
         Forward pass through the RNN model.
 

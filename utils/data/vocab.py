@@ -2,7 +2,7 @@
 
 import collections
 from torch.utils.data import Dataset
-
+from typing import overload
 
 class Vocab(Dataset):
     """Vocabulary for mapping tokens to indices and vice versa.
@@ -38,6 +38,14 @@ class Vocab(Dataset):
     def __len__(self) -> int:
         return len(self.idx_to_token)
 
+    @overload
+    def __getitem__(self, tokens: str) -> int:
+        ...
+
+    @overload
+    def __getitem__(self, tokens: list[str]) -> list[int]:
+        ...
+
     def __getitem__(self, tokens: str | list[str]) -> int | list[int]:
         if isinstance(tokens, str):
             # Get the index of a single token, return 'unk' index if not found
@@ -49,6 +57,14 @@ class Vocab(Dataset):
             ]
         else:
             raise TypeError("Input must be a string or list of strings")
+
+    @overload
+    def to_tokens(self, indices: int) -> str:
+        ...
+        
+    @overload
+    def to_tokens(self, indices: list[int]) -> list[str]:
+        ...
 
     def to_tokens(self, indices: int | list[int]) -> str | list[str]:
         if isinstance(indices, int):

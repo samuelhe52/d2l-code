@@ -6,6 +6,7 @@ from rnn_concise import RNNLM
 from utils.io import load_model
 from utils.training import RNNTrainer, TrainingConfig
 from utils.data import (
+    BookData,
     TimeMachineData,
     PrideAndPrejudiceData,
     WarOfTheWorldsData,
@@ -22,8 +23,8 @@ def get_device() -> torch.device:
 
 
 def evaluate_dataset(
-    model: RNNLM,
-    dataset,
+    model: nn.Module,
+    dataset: BookData,
     batch_size: int,
     device: torch.device,
     *,
