@@ -4,7 +4,7 @@ from torch.nn import functional as F
 from typing import Tuple, Optional
 
 from utils.io import load_model
-from utils.training import RNNTrainer, TrainingConfig
+from utils.training import RNNTrainer, TrainingConfig, TrainingLogger
 from utils.data import (
     Vocab,
     book_data_loader,
@@ -17,23 +17,26 @@ class RNNLM(nn.Module):
     A simple RNN-based Language Model using PyTorch's built-in RNN module.
 
     Args:
+        rnn (Optional[nn.Module]): Predefined RNN module. \
+            If None, a default nn.RNN will be created.
         vocab_size (int): Size of the vocabulary. \
             Used for input and output dimensions.
         num_hiddens (int): Number of hidden units.
         num_layers (int): Number of RNN layers.
         dropout (float): Dropout probability between RNN layers.
     """
-    def __init__(self, vocab_size: int,
+    def __init__(self, rnn: Optional[nn.Module], vocab_size: int,
                  num_hiddens: int, num_layers: int = 1,
                  dropout: float = 0.0):
         super().__init__()
         self.vocab_size = vocab_size
         self.num_hiddens = num_hiddens
-        self.rnn = nn.RNN(input_size=vocab_size,
-                          hidden_size=num_hiddens,
-                          num_layers=num_layers,
-                          dropout=dropout,
-                          batch_first=False)
+        self.rnn = rnn if rnn is not None \
+            else nn.RNN(input_size=vocab_size,
+                        hidden_size=num_hiddens,
+                        num_layers=num_layers,
+                        dropout=dropout,
+                        batch_first=False)
         self.linear = nn.Linear(num_hiddens, vocab_size)
 
     def forward(self, inputs: Tensor, state: Optional[Tensor] = None) \
@@ -54,10 +57,22 @@ class RNNLM(nn.Module):
         if state is None:
             batch_size = inputs.shape[0]
             num_layers = self.rnn.num_layers
-            state = torch.zeros(
-                (num_layers, batch_size, self.num_hiddens),
-                device=inputs.device, dtype=torch.float32
-            )
+            if isinstance(self.rnn, nn.LSTM):
+                state = (
+                    torch.zeros(
+                        (num_layers, batch_size, self.num_hiddens),
+                        device=inputs.device, dtype=torch.float32
+                    ),
+                    torch.zeros(
+                        (num_layers, batch_size, self.num_hiddens),
+                        device=inputs.device, dtype=torch.float32
+                    )
+                )
+            else:
+                state = torch.zeros(
+                    (num_layers, batch_size, self.num_hiddens),
+                    device=inputs.device, dtype=torch.float32
+                )
         inputs = self.one_hot(inputs)
         rnn_outputs, H = self.rnn(inputs, state)
         return self.output_layer(rnn_outputs), H
@@ -117,28 +132,47 @@ class RNNLM(nn.Module):
         return ''.join([vocab.idx_to_token[i] for i in outputs])
 
 if __name__ == "__main__":
-    data = TimeMachineData(seq_len=32, use_chars=True)
+    hparams = {
+        'seq_len': 32,
+        'batch_size': 1024,
+        'num_hiddens': 32,
+        'num_layers': 1,
+        'dropout': 0.0,
+        'num_epochs': 100,
+        'lr': 1,
+    }
+    
+    data = TimeMachineData(seq_len=hparams['seq_len'], use_chars=True)
     train_loader = book_data_loader(
-        data, batch_size=1024, train=True
+        data, batch_size=hparams['batch_size'], train=True
     )
     val_loader = book_data_loader(
-        data, batch_size=1024, train=False
+        data, batch_size=hparams['batch_size'], train=False
     )
     model = RNNLM(
         vocab_size=len(data.vocab),
-        num_hiddens=32,
+        num_hiddens=hparams['num_hiddens'],
+    )
+
+    
+    logger = TrainingLogger(
+        log_path='logs/rnnlm_experiment.json',
+        hparams=hparams
     )
     
     config = TrainingConfig(
-        num_epochs=100,
-        lr=1,
+        num_epochs=hparams['num_epochs'],
+        lr=hparams['lr'],
         loss_fn=nn.CrossEntropyLoss(),
         save_path='./models/rnnlm.pt',
+        logger=logger,
         device=torch.device('cpu')
     )
     
-    # trainer = RNNTrainer(model, train_loader, val_loader, config)
-    # trainer.train()
+    trainer = RNNTrainer(model, train_loader, val_loader, config)
+    trainer.train()
+    logger.summary()
+    logger.save()
     
     # Test generation
     model = load_model('./models/rnnlm.pt', model)
