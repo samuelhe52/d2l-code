@@ -17,17 +17,17 @@ class RNNLM(nn.Module):
     A simple RNN-based Language Model using PyTorch's built-in RNN module.
 
     Args:
-        rnn (Optional[nn.Module]): Predefined RNN module. \
-            If None, a default nn.RNN will be created.
         vocab_size (int): Size of the vocabulary. \
             Used for input and output dimensions.
         num_hiddens (int): Number of hidden units.
         num_layers (int): Number of RNN layers.
         dropout (float): Dropout probability between RNN layers.
+        rnn (Optional[nn.Module]): Predefined RNN module. \
+            If None, a default nn.RNN will be created.
     """
-    def __init__(self, rnn: Optional[nn.Module], vocab_size: int,
+    def __init__(self, vocab_size: int,
                  num_hiddens: int, num_layers: int = 1,
-                 dropout: float = 0.0):
+                 dropout: float = 0.0, rnn: Optional[nn.Module] = None):
         super().__init__()
         self.vocab_size = vocab_size
         self.num_hiddens = num_hiddens
@@ -108,7 +108,8 @@ class RNNLM(nn.Module):
             .to(dtype=torch.float32, device=X.device)
             
     def generate(self, prefix: str, num_preds: int,
-                 vocab: Vocab, device: torch.device) -> str:
+                 vocab: Vocab, device: torch.device,
+                 temperature: float = 1.0, top_k: Optional[int] = 20) -> str:
         """
         Generate text using the RNN model
 
@@ -121,14 +122,34 @@ class RNNLM(nn.Module):
         Returns:
             str: Generated text string.
         """
+        was_training = self.training
+        self.eval()
         state, outputs = None, [vocab[prefix[0]]]
-        for t in range(num_preds + len(prefix) - 1):
-            X = torch.tensor([[outputs[-1]]], device=device) # The last token
-            Y, state = self.forward(X, state)
-            if t < len(prefix) - 1:
-                outputs.append(vocab[prefix[t + 1]]) # Append the next token from prefix
-            else:
-                outputs.append(int(Y.argmax(dim=1).item()))
+        temp = max(1e-6, float(temperature))
+        with torch.no_grad():
+            for t in range(num_preds + len(prefix) - 1):
+                # The last token
+                X = torch.tensor([[outputs[-1]]], device=device)
+                Y, state = self.forward(X, state)
+                if t < len(prefix) - 1:
+                    # Append the next token from prefix
+                    outputs.append(vocab[prefix[t + 1]])
+                    continue
+
+                logits = Y[:, :, -1] / temp
+                if top_k is not None and top_k > 0:
+                    k = min(int(top_k), logits.shape[1])
+                    topk_vals, topk_idx = torch.topk(logits, k=k, dim=1)
+                    probs = F.softmax(topk_vals, dim=1)
+                    next_rel = torch.multinomial(probs, num_samples=1)
+                    next_idx = topk_idx.gather(1, next_rel)
+                else:
+                    probs = F.softmax(logits, dim=1)
+                    next_idx = torch.multinomial(probs, num_samples=1)
+                outputs.append(int(next_idx.item()))
+
+        if was_training:
+            self.train()
         return ''.join([vocab.idx_to_token[i] for i in outputs])
 
 if __name__ == "__main__":
@@ -169,15 +190,15 @@ if __name__ == "__main__":
         device=torch.device('cpu')
     )
     
-    trainer = RNNTrainer(model, train_loader, val_loader, config)
-    trainer.train()
-    logger.summary()
-    logger.save()
+    # trainer = RNNTrainer(model, train_loader, val_loader, config)
+    # trainer.train()
+    # logger.summary()
+    # logger.save()
     
     # Test generation
-    model = load_model('./models/rnnlm.pt', model)
+    model = load_model('./models/rnnlm.pt', model, device=torch.device('cpu'))
     print(model.generate(
-        prefix='time traveller ',
+        prefix='it is high time ',
         num_preds=50,
         vocab=data.vocab,
         device=torch.device('cpu')

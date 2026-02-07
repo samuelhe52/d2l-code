@@ -1,7 +1,7 @@
 """Model I/O utilities."""
 
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 import torch
 from torch.nn import Module
@@ -22,20 +22,21 @@ def save_model(model: Module, save_path: PathLike) -> None:
     print(f'Model saved to {save_path}')
 
 
-def load_model(load_path: PathLike, model: Module) -> Module:
+def load_model(load_path: PathLike, model: Module,
+               device: Optional[torch.device] = None) -> Module:
     """Load model parameters from a file.
     
     Args:
         load_path: Path to the saved model parameters
         model: PyTorch model to load parameters into
-        
+        device: Device on which to map the loaded parameters
     Returns:
         The model with loaded parameters
     """
     load_path = Path(load_path)
     if not load_path.exists():
         raise FileNotFoundError(f'No model found at {load_path}')
-    state_dict = torch.load(load_path, weights_only=True)
+    state_dict = torch.load(load_path, weights_only=True, map_location=device)
     model.load_state_dict(state_dict)
     print(f'Model loaded from {load_path}')
     return model

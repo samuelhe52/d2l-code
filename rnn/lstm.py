@@ -39,9 +39,9 @@ if __name__ == "__main__":
                   batch_first=False)
     
     model = RNNLM(
-        rnn=rnn,
         vocab_size=len(data.vocab),
         num_hiddens=hparams['num_hiddens'],
+        rnn=rnn
     )
     
     logger = TrainingLogger(
@@ -58,15 +58,15 @@ if __name__ == "__main__":
         device=torch.device('cpu')
     )
     
-    trainer = RNNTrainer(model, train_loader, val_loader, config)
-    trainer.train()
-    logger.summary()
-    logger.save()
+    # trainer = RNNTrainer(model, train_loader, val_loader, config)
+    # trainer.train()
+    # logger.summary()
+    # logger.save()
     
     # Test generation
-    model = load_model('./models/rnnlm_lstm.pt', model)
+    model = load_model('./models/rnnlm_lstm.pt', model, device=torch.device('cpu'))
     print(model.generate(
-        prefix='time traveller ',
+        prefix='it is high time ',
         num_preds=50,
         vocab=data.vocab,
         device=torch.device('cpu')
