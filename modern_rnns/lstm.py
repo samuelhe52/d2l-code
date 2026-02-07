@@ -16,13 +16,12 @@ from utils.data import (
 
 if __name__ == "__main__":
     hparams = {
-        'seq_len': 32,
+        'seq_len': 40,
         'batch_size': 1024,
-        'num_hiddens': 32,
-        'num_layers': 1,
-        'dropout': 0.0,
+        'num_hiddens': 256,
+        'grad_clip': 1.0,
         'num_epochs': 100,
-        'lr': 1,
+        'lr': 0.2,
         'rnn_type': 'LSTM',
     }
     
@@ -53,21 +52,24 @@ if __name__ == "__main__":
         num_epochs=hparams['num_epochs'],
         lr=hparams['lr'],
         loss_fn=nn.CrossEntropyLoss(),
+        grad_clip=hparams['grad_clip'],
         save_path='./models/rnnlm_lstm.pt',
         logger=logger,
-        device=torch.device('cpu')
+        device=torch.device('mps')
     )
     
-    # trainer = RNNTrainer(model, train_loader, val_loader, config)
-    # trainer.train()
-    # logger.summary()
-    # logger.save()
+    trainer = RNNTrainer(model, train_loader, val_loader, config)
+    trainer.train()
+    logger.summary()
     
     # Test generation
-    model = load_model('./models/rnnlm_lstm.pt', model, device=torch.device('cpu'))
+    model = load_model('./models/rnnlm_lstm.pt',
+                       model,
+                       device=torch.device('mps'))
     print(model.generate(
-        prefix='it is high time ',
+        prefix='it is high time',
         num_preds=50,
         vocab=data.vocab,
-        device=torch.device('cpu')
+        device=torch.device('mps'),
+        temperature=0.3
     ))

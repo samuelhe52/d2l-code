@@ -50,7 +50,6 @@ if __name__ == "__main__":
     # trainer = RNNTrainer(model, train_loader, val_loader, config)
     # trainer.train()
     # logger.summary()
-    # logger.save()
     
     # Test generation
     model = load_model('./models/rnnlm.pt', model, device=torch.device('cpu'))

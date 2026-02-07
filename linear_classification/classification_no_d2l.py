@@ -48,5 +48,3 @@ if __name__ == "__main__":
     trainer.train()
     
     logger.summary()
-    # Persist log to disk
-    logger.save()

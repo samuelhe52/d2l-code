@@ -71,6 +71,7 @@ class BaseTrainer(ABC):
         self.model = model
         self.dataloader = dataloader
         self.val_dataloader = val_dataloader
+        self.interrupted = False
 
         # Resolve config with overrides
         self.cfg = resolve_training_config(
@@ -168,6 +169,26 @@ class BaseTrainer(ABC):
         """Hook called after loss.backward(). Override for gradient clipping, etc."""
         pass
 
+    def _prompt_save_on_interrupt(self) -> tuple[bool, bool]:
+        """Ask whether to save model and logs after Ctrl-C.
+
+        Returns:
+            Tuple of (save_model, save_logs).
+        """
+        save_model = False
+        save_logs = False
+        try:
+            if self.cfg.save_path is not None:
+                response = input("Interrupted. Save model? [y/N]: ").strip().lower()
+                save_model = response in {"y", "yes"}
+            if self.cfg.logger is not None and self.cfg.logger.log_path is not None:
+                response = input("Save training log? [y/N]: ").strip().lower()
+                save_logs = response in {"y", "yes"}
+        except (EOFError, KeyboardInterrupt):
+            save_model = False
+            save_logs = False
+        return save_model, save_logs
+
     def train(self) -> dict[str, float] | None:
         """Run the training loop.
 
@@ -176,64 +197,79 @@ class BaseTrainer(ABC):
         """
         epoch_pbar = tqdm(range(self.cfg.num_epochs), desc="Training", unit="epoch")
         final_metrics: dict[str, float] | None = None
+        self.interrupted = False
 
-        for epoch in epoch_pbar:
-            # Training phase
-            self.model.train()
-            batch_metrics: list[dict[str, float]] = []
+        try:
+            for epoch in epoch_pbar:
+                # Training phase
+                self.model.train()
+                batch_metrics: list[dict[str, float]] = []
 
-            batch_pbar = tqdm(
-                self.dataloader,
-                desc=f"Epoch {epoch + 1}/{self.cfg.num_epochs}",
-                leave=False,
-            )
-
-            for X, y in batch_pbar:
-                X, y = self.prepare_batch(X, y)
-                self.optimizer.zero_grad()
-                y_hat = self.forward(X)
-                loss = self.loss_fn(y_hat, y)
-                loss.backward()
-                self.post_backward()
-                self.optimizer.step()
-
-                metrics = self.compute_metrics(y_hat, y, loss.item())
-                batch_metrics.append(metrics)
-
-                # Update batch progress bar
-                batch_pbar.set_postfix(self.format_train_metrics(metrics))
-
-            # Aggregate training metrics
-            train_metrics = self._aggregate_metrics(batch_metrics)
-
-            # Validation phase
-            val_metrics: dict[str, float] | None = None
-            if self.val_dataloader is not None:
-                val_metrics = self.validate()
-
-            # Update epoch progress bar
-            if val_metrics is not None:
-                epoch_pbar.set_postfix(self.format_val_metrics(train_metrics, val_metrics))
-            else:
-                epoch_pbar.set_postfix(self.format_train_metrics(train_metrics))
-
-            # Verbose output
-            if self.cfg.verbose:
-                msg = self.format_epoch_message(
-                    epoch + 1, self.cfg.num_epochs, train_metrics, val_metrics
+                batch_pbar = tqdm(
+                    self.dataloader,
+                    desc=f"Epoch {epoch + 1}/{self.cfg.num_epochs}",
+                    leave=False,
                 )
-                tqdm.write(msg)
 
-            # Logging
-            if self.cfg.logger is not None:
-                log_kwargs = self.log_metrics(epoch, train_metrics, val_metrics)
-                self.cfg.logger.log_epoch(epoch, **log_kwargs)
+                for X, y in batch_pbar:
+                    X, y = self.prepare_batch(X, y)
+                    self.optimizer.zero_grad()
+                    y_hat = self.forward(X)
+                    loss = self.loss_fn(y_hat, y)
+                    loss.backward()
+                    self.post_backward()
+                    self.optimizer.step()
 
-            final_metrics = {**train_metrics, **(val_metrics or {})}
+                    metrics = self.compute_metrics(y_hat, y, loss.item())
+                    batch_metrics.append(metrics)
 
-        # Save model
-        if self.cfg.save_path is not None:
-            save_model(self.model, self.cfg.save_path)
+                    # Update batch progress bar
+                    batch_pbar.set_postfix(self.format_train_metrics(metrics))
+
+                # Aggregate training metrics
+                train_metrics = self._aggregate_metrics(batch_metrics)
+
+                # Validation phase
+                val_metrics: dict[str, float] | None = None
+                if self.val_dataloader is not None:
+                    val_metrics = self.validate()
+
+                # Update epoch progress bar
+                if val_metrics is not None:
+                    epoch_pbar.set_postfix(self.format_val_metrics(train_metrics, val_metrics))
+                else:
+                    epoch_pbar.set_postfix(self.format_train_metrics(train_metrics))
+
+                # Verbose output
+                if self.cfg.verbose:
+                    msg = self.format_epoch_message(
+                        epoch + 1, self.cfg.num_epochs, train_metrics, val_metrics
+                    )
+                    tqdm.write(msg)
+
+                # Logging
+                if self.cfg.logger is not None:
+                    log_kwargs = self.log_metrics(epoch, train_metrics, val_metrics)
+                    self.cfg.logger.log_epoch(epoch, **log_kwargs)
+
+                final_metrics = {**train_metrics, **(val_metrics or {})}
+        except KeyboardInterrupt:
+            self.interrupted = True
+            tqdm.write("Training interrupted.")
+        finally:
+            epoch_pbar.close()
+
+            if self.interrupted:
+                save_model_choice, save_logs_choice = self._prompt_save_on_interrupt()
+                if save_model_choice and self.cfg.save_path is not None:
+                    save_model(self.model, self.cfg.save_path)
+                if save_logs_choice and self.cfg.logger is not None and self.cfg.logger.log_path is not None:
+                    self.cfg.logger.save()
+            else:
+                if self.cfg.save_path is not None:
+                    save_model(self.model, self.cfg.save_path)
+                if self.cfg.logger is not None and self.cfg.logger.log_path is not None:
+                    self.cfg.logger.save()
 
         return final_metrics
 

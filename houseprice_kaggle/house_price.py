@@ -138,7 +138,6 @@ if __name__ == "__main__":
     models.sort(key=lambda x: x[1])  # Sort by validation loss
     models = [m[0] for m in models[:3]]  # Keep top 3 models
     logger.summary()
-    logger.save()
     
     test_loader = get_dataloader(batch_size=64, train=False)
     # predictions = test(models, test_loader)
