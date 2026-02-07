@@ -1,7 +1,7 @@
-from rnn_concise import RNNLM
 from typing import Optional, Tuple
 import torch
 from torch import nn, Tensor
+from utils.rnnlm import RNNLM
 from utils.io import load_model
 from utils.training import (
     RNNTrainer,

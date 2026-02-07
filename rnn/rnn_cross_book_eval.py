@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from rnn_concise import RNNLM
+from utils.rnnlm import RNNLM
 from utils.io import load_model
 from utils.training import RNNTrainer, TrainingConfig
 from utils.data import (
