@@ -16,12 +16,12 @@ from utils.data import (
 
 if __name__ == "__main__":
     hparams = {
-        'seq_len': 40,
+        'seq_len': 48,
         'batch_size': 1024,
         'num_hiddens': 256,
         'grad_clip': 1.0,
         'num_epochs': 100,
-        'lr': 0.2,
+        'lr': 0.4,
         'rnn_type': 'LSTM',
     }
     
@@ -55,7 +55,7 @@ if __name__ == "__main__":
         grad_clip=hparams['grad_clip'],
         save_path='./models/rnnlm_lstm.pt',
         logger=logger,
-        device=torch.device('mps')
+        device=torch.device('cpu'),
     )
     
     trainer = RNNTrainer(model, train_loader, val_loader, config)
@@ -65,11 +65,11 @@ if __name__ == "__main__":
     # Test generation
     model = load_model('./models/rnnlm_lstm.pt',
                        model,
-                       device=torch.device('mps'))
+                       device=torch.device('cpu'))
     print(model.generate(
-        prefix='it is high time',
+        prefix='time traveller ',
         num_preds=50,
         vocab=data.vocab,
-        device=torch.device('mps'),
-        temperature=0.3
+        device=torch.device('cpu'),
+        temperature=0.5
     ))
