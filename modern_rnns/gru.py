@@ -39,12 +39,13 @@ class GRULM(nn.Module):
 
 if __name__ == "__main__":
     hparams = {
-        'seq_len': 48,
-        'batch_size': 1024,
+        'seq_len': 96,
+        'batch_size': 128,
         'num_hiddens': 256,
         'grad_clip': 1.0,
+        'num_layers': 3,
         'num_epochs': 100,
-        'lr': 0.4,
+        'lr': 0.1,
         'rnn_type': 'GRU',
     }
     
@@ -57,8 +58,9 @@ if __name__ == "__main__":
     )
     
     rnn = nn.GRU(input_size=len(data.vocab),
-                  hidden_size=hparams['num_hiddens'],
-                  batch_first=False)
+                 hidden_size=hparams['num_hiddens'],
+                 num_layers=hparams['num_layers'],
+                 batch_first=False)
     
     model = RNNLM(
         vocab_size=len(data.vocab),
