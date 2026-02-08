@@ -163,6 +163,166 @@ class PrideAndPrejudiceData(BookData):
         return text.strip()
 
 
+class SenseAndSensibilityData(BookData):
+    """Dataset for "Sense and Sensibility" by Jane Austen.
+
+    Args:
+        seq_len: Length of each sequence sample.
+        data_root: Root directory for storing/loading the dataset.
+        use_chars: Whether to tokenize into characters (True) or words (False).
+        vocab: Optional vocabulary to reuse for consistent token indices.
+    """
+
+    def __init__(
+        self,
+        seq_len: int,
+        data_root: str = "./data",
+        use_chars: bool = True,
+        vocab: Vocab | None = None,
+    ):
+        super().__init__(
+            seq_len=seq_len,
+            book_name="sense_and_sensibility",
+            book_url="https://www.gutenberg.org/cache/epub/161/pg161.txt",
+            md5_hash="5a661aa141bb982e92098eaa3791a1af",
+            data_root=data_root,
+            use_chars=use_chars,
+            vocab=vocab,
+        )
+
+    def _preprocess_text(self, text: str) -> str:
+        header_pattern = r"\*\*\* START OF (?:THIS|THE) PROJECT GUTENBERG EBOOK.*\n"
+        footer_pattern = r"\*\*\* END OF (?:THIS|THE) PROJECT GUTENBERG EBOOK.*"
+        start = re.search(header_pattern, text)
+        end = re.search(footer_pattern, text)
+        if start and end:
+            text = text[start.end() : end.start()]
+
+        text = text.lower()
+        text = re.sub(r"[^a-z\s]", " ", text)
+        return text.strip()
+
+
+class EmmaData(BookData):
+    """Dataset for "Emma" by Jane Austen.
+
+    Args:
+        seq_len: Length of each sequence sample.
+        data_root: Root directory for storing/loading the dataset.
+        use_chars: Whether to tokenize into characters (True) or words (False).
+        vocab: Optional vocabulary to reuse for consistent token indices.
+    """
+
+    def __init__(
+        self,
+        seq_len: int,
+        data_root: str = "./data",
+        use_chars: bool = True,
+        vocab: Vocab | None = None,
+    ):
+        super().__init__(
+            seq_len=seq_len,
+            book_name="emma",
+            book_url="https://www.gutenberg.org/cache/epub/158/pg158.txt",
+            md5_hash="8ed7e88446d39c1b6d8bdd55477e447d",
+            data_root=data_root,
+            use_chars=use_chars,
+            vocab=vocab,
+        )
+
+    def _preprocess_text(self, text: str) -> str:
+        header_pattern = r"\*\*\* START OF (?:THIS|THE) PROJECT GUTENBERG EBOOK.*\n"
+        footer_pattern = r"\*\*\* END OF (?:THIS|THE) PROJECT GUTENBERG EBOOK.*"
+        start = re.search(header_pattern, text)
+        end = re.search(footer_pattern, text)
+        if start and end:
+            text = text[start.end() : end.start()]
+
+        text = text.lower()
+        text = re.sub(r"[^a-z\s]", " ", text)
+        return text.strip()
+
+
+class MansfieldParkData(BookData):
+    """Dataset for "Mansfield Park" by Jane Austen.
+
+    Args:
+        seq_len: Length of each sequence sample.
+        data_root: Root directory for storing/loading the dataset.
+        use_chars: Whether to tokenize into characters (True) or words (False).
+        vocab: Optional vocabulary to reuse for consistent token indices.
+    """
+
+    def __init__(
+        self,
+        seq_len: int,
+        data_root: str = "./data",
+        use_chars: bool = True,
+        vocab: Vocab | None = None,
+    ):
+        super().__init__(
+            seq_len=seq_len,
+            book_name="mansfield_park",
+            book_url="https://www.gutenberg.org/cache/epub/141/pg141.txt",
+            md5_hash="3695e38696d7688914e1b5443c791a65",
+            data_root=data_root,
+            use_chars=use_chars,
+            vocab=vocab,
+        )
+
+    def _preprocess_text(self, text: str) -> str:
+        header_pattern = r"\*\*\* START OF (?:THIS|THE) PROJECT GUTENBERG EBOOK.*\n"
+        footer_pattern = r"\*\*\* END OF (?:THIS|THE) PROJECT GUTENBERG EBOOK.*"
+        start = re.search(header_pattern, text)
+        end = re.search(footer_pattern, text)
+        if start and end:
+            text = text[start.end() : end.start()]
+
+        text = text.lower()
+        text = re.sub(r"[^a-z\s]", " ", text)
+        return text.strip()
+
+
+class PersuasionData(BookData):
+    """Dataset for "Persuasion" by Jane Austen.
+
+    Args:
+        seq_len: Length of each sequence sample.
+        data_root: Root directory for storing/loading the dataset.
+        use_chars: Whether to tokenize into characters (True) or words (False).
+        vocab: Optional vocabulary to reuse for consistent token indices.
+    """
+
+    def __init__(
+        self,
+        seq_len: int,
+        data_root: str = "./data",
+        use_chars: bool = True,
+        vocab: Vocab | None = None,
+    ):
+        super().__init__(
+            seq_len=seq_len,
+            book_name="persuasion",
+            book_url="https://www.gutenberg.org/cache/epub/105/pg105.txt",
+            md5_hash="4f9be919603ae85ca9ffc4b74926e9df",
+            data_root=data_root,
+            use_chars=use_chars,
+            vocab=vocab,
+        )
+
+    def _preprocess_text(self, text: str) -> str:
+        header_pattern = r"\*\*\* START OF (?:THIS|THE) PROJECT GUTENBERG EBOOK.*\n"
+        footer_pattern = r"\*\*\* END OF (?:THIS|THE) PROJECT GUTENBERG EBOOK.*"
+        start = re.search(header_pattern, text)
+        end = re.search(footer_pattern, text)
+        if start and end:
+            text = text[start.end() : end.start()]
+
+        text = text.lower()
+        text = re.sub(r"[^a-z\s]", " ", text)
+        return text.strip()
+
+
 class WarOfTheWorldsData(BookData):
     """Dataset for "The War of the Worlds" by H.G. Wells.
 
@@ -201,6 +361,68 @@ class WarOfTheWorldsData(BookData):
         text = text.lower()
         text = re.sub(r"[^a-z\s]", " ", text)
         return text.strip()
+
+
+class FusedBookData(Dataset):
+    """Dataset that fuses multiple BookData instances into a single corpus.
+
+    Args:
+        book_datasets: List of BookData instances to fuse.
+        seq_len: Sequence length to use for feature/label creation. If None,
+            uses the sequence length from the first dataset and requires all
+            datasets to match it.
+        vocab: Optional vocabulary to reuse for consistent token indices.
+        separator_token: Optional token inserted between books.
+    """
+
+    def __init__(
+        self,
+        book_datasets: list[BookData],
+        seq_len: int | None = None,
+        vocab: Vocab | None = None,
+        separator_token: str | None = None,
+    ):
+        if not book_datasets:
+            raise ValueError("book_datasets must contain at least one dataset.")
+
+        self.book_datasets = book_datasets
+        self.book_names = [book.book_name for book in book_datasets]
+
+        if seq_len is None:
+            seq_len = int(book_datasets[0].features.shape[1])
+            for book in book_datasets[1:]:
+                if int(book.features.shape[1]) != seq_len:
+                    raise ValueError(
+                        "All datasets must use the same seq_len or pass seq_len."
+                    )
+        self.seq_len = seq_len
+
+        tokens: list[str] = []
+        for idx, book in enumerate(book_datasets):
+            tokens.extend(book.tokens)
+            if separator_token is not None and idx < len(book_datasets) - 1:
+                tokens.append(separator_token)
+
+        self.tokens = tokens
+        self.vocab = vocab if vocab is not None else Vocab(self.tokens)
+        self.corpus = [self.vocab[token] for token in self.tokens]
+
+        self.features, self.labels = self._create_features_and_labels(self.seq_len)
+
+    def __len__(self):
+        return len(self.features)
+
+    def __getitem__(self, idx):
+        return self.features[idx], self.labels[idx]
+
+    def _create_features_and_labels(self, seq_len: int) -> tuple[Tensor, Tensor]:
+        num_examples = len(self.corpus) - seq_len
+        array = torch.tensor(
+            [self.corpus[i : i + seq_len + 1] for i in range(num_examples)]
+        )
+        features = array[:, :-1]
+        labels = array[:, 1:]
+        return features, labels
 
 
 def book_data_loader(
