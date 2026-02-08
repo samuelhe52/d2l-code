@@ -4,7 +4,7 @@ from torch import nn
 from utils.io import load_model
 from utils.rnnlm import RNNLM
 from utils.training import RNNTrainer, TrainingConfig, TrainingLogger
-from utils.data import (
+from utils.data.book_data import (
     book_data_loader,
     TimeMachineData,
 )

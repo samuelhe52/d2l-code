@@ -1,13 +1,13 @@
-from utils.data import Vocab
-from utils.data import (
+from utils.data.book_data import (
     book_data_loader,
-    TimeMachineData,
     PrideAndPrejudiceData,
+    TimeMachineData,
+    AustenCompilationData
 )
 
 
 if __name__ == "__main__":
-    data = PrideAndPrejudiceData(seq_len=10, use_chars=True)
+    data = AustenCompilationData(seq_len=10, use_chars=True)
     print(f'Number of tokens: {len(data.tokens)}')
     print(f'Vocabulary size: {len(data.vocab)}')
     print(f'Most frequent tokens: {data.vocab.token_freqs[:10]}')

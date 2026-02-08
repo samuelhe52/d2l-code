@@ -425,6 +425,61 @@ class FusedBookData(Dataset):
         return features, labels
 
 
+class AustenCompilationData(FusedBookData):
+    """Dataset that fuses multiple Jane Austen books into one corpus.
+
+    Args:
+        seq_len: Length of each sequence sample.
+        data_root: Root directory for storing/loading the dataset.
+        use_chars: Whether to tokenize into characters (True) or words (False).
+        vocab: Optional vocabulary to reuse for consistent token indices.
+        separator_token: Optional token inserted between books.
+    """
+
+    def __init__(
+        self,
+        seq_len: int,
+        data_root: str = "./data",
+        use_chars: bool = True,
+        vocab: Vocab | None = None,
+        separator_token: str | None = None,
+    ):
+        books = [
+            PrideAndPrejudiceData(
+                seq_len=seq_len,
+                data_root=data_root,
+                use_chars=use_chars,
+            ),
+            SenseAndSensibilityData(
+                seq_len=seq_len,
+                data_root=data_root,
+                use_chars=use_chars,
+            ),
+            EmmaData(
+                seq_len=seq_len,
+                data_root=data_root,
+                use_chars=use_chars,
+            ),
+            MansfieldParkData(
+                seq_len=seq_len,
+                data_root=data_root,
+                use_chars=use_chars,
+            ),
+            PersuasionData(
+                seq_len=seq_len,
+                data_root=data_root,
+                use_chars=use_chars,
+            ),
+        ]
+
+        super().__init__(
+            book_datasets=books,
+            seq_len=seq_len,
+            vocab=vocab,
+            separator_token=separator_token,
+        )
+
+
 def book_data_loader(
     book_data: BookData, batch_size: int, train_ratio: float = 0.8, train: bool = True
 ) -> DataLoader:

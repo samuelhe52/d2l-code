@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from utils.rnnlm import RNNLM
 from utils.io import load_model
 from utils.training import RNNTrainer, TrainingConfig
-from utils.data import (
+from utils.data.book_data import (
     BookData,
     TimeMachineData,
     PrideAndPrejudiceData,

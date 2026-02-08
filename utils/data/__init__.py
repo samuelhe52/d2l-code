@@ -7,23 +7,10 @@ This module provides data loading utilities for all task types:
 
 from .classification import fashion_mnist
 from .vocab import Vocab
-from .book_data import (
-    BookData,
-    TimeMachineData,
-    PrideAndPrejudiceData,
-    WarOfTheWorldsData,
-    book_data_loader,
-)
 
 __all__ = [
     # Classification
     "fashion_mnist",
     # Vocabulary
     "Vocab",
-    # Book/RNN data
-    "BookData",
-    "TimeMachineData",
-    "PrideAndPrejudiceData",
-    "WarOfTheWorldsData",
-    "book_data_loader",
 ]

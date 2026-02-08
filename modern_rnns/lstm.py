@@ -8,7 +8,7 @@ from utils.training import (
     TrainingConfig,
     TrainingLogger
 )
-from utils.data import (
+from utils.data.book_data import (
     book_data_loader,
     PrideAndPrejudiceData,
     TimeMachineData,
