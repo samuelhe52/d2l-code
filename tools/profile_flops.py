@@ -7,7 +7,6 @@ Requires:
     pip install ptflops
 """
 from pathlib import Path
-from typing import Any, Dict, Tuple
 import sys
 import argparse
 
@@ -19,17 +18,22 @@ from model_loader import ROOT, init_lazy_model, load_class_from_path
 from model_registry import MODELS
 
 
-def measure(model: torch.nn.Module, h: int, w: int) -> Tuple[str, str]:
+def measure(model: torch.nn.Module, input_shape: tuple[int, ...]) -> tuple[str, str]:
     model.eval()
-    init_lazy_model(model, h, w)
+    init_lazy_model(model, input_shape)
+    input_res = input_shape[1:] if len(input_shape) > 1 else input_shape
     macs, params = get_model_complexity_info(
         model,
-        (1, h, w),  # C, H, W
+        input_res,
         as_strings=True,
         print_per_layer_stat=False,
         verbose=False,
     )
     return macs, params
+
+
+def format_input_shape(input_shape: tuple[int, ...]) -> str:
+    return "x".join(str(dim) for dim in input_shape)
 
 
 def main() -> None:
@@ -49,10 +53,11 @@ def main() -> None:
         raise SystemExit(f"Unknown model ids: {unknown}. Known: {known}")
 
     for mid in selected_ids:
-        path, cls_name, h, w, kwargs = MODELS[mid]
+        path, cls_name, input_shape, kwargs = MODELS[mid]
         model = load_class_from_path(path, cls_name, **kwargs)
-        macs, params = measure(model, h, w)
-        print(f"{mid}: MACs {macs}, Params {params}, input=1x{h}x{w}")
+        macs, params = measure(model, input_shape)
+        shape_str = format_input_shape(input_shape)
+        print(f"{mid}: MACs {macs}, Params {params}, input={shape_str}")
     print("\nNote: MACs are multiply-accumulates. Multiply by ~2 for FLOPs (mul+add).")
 
 

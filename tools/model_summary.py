@@ -7,7 +7,6 @@ Requires:
     pip install torchinfo
 """
 from pathlib import Path
-from typing import Any, Dict, Iterable, Tuple
 import sys
 
 import torch
@@ -19,14 +18,18 @@ from model_registry import MODELS
 import argparse
 
 
-def summarize(model: torch.nn.Module, h: int, w: int) -> str:
-    init_lazy_model(model, h, w)
+def summarize(model: torch.nn.Module, input_shape: tuple[int, ...]) -> str:
+    init_lazy_model(model, input_shape)
     return summary(
         model,
-        input_size=(1, 1, h, w),
+        input_size=input_shape,
         col_names=("input_size", "output_size", "num_params", "kernel_size", "mult_adds"),
         verbose=0,
     ).__str__()
+
+
+def format_input_shape(input_shape: tuple[int, ...]) -> str:
+    return "x".join(str(dim) for dim in input_shape)
 
 
 def main() -> None:
@@ -46,10 +49,11 @@ def main() -> None:
         raise SystemExit(f"Unknown model ids: {unknown}. Known: {known}")
 
     for mid in selected_ids:
-        path, cls_name, h, w, kwargs = MODELS[mid]
+        path, cls_name, input_shape, kwargs = MODELS[mid]
         model = load_class_from_path(path, cls_name, **kwargs)
-        print(f"===== {mid} (input=1x{h}x{w}) =====")
-        print(summarize(model, h, w))
+        shape_str = format_input_shape(input_shape)
+        print(f"===== {mid} (input={shape_str}) =====")
+        print(summarize(model, input_shape))
         print()
 
 

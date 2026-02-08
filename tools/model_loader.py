@@ -21,8 +21,8 @@ def load_class_from_path(path: Path, cls_name: str, *args: Any, **kwargs: Any) -
     return cls(*args, **kwargs)
 
 
-def init_lazy_model(model: torch.nn.Module, h: int, w: int) -> None:
+def init_lazy_model(model: torch.nn.Module, input_shape: tuple[int, ...]) -> None:
     """Run a dummy forward pass to initialize Lazy modules."""
     model.eval()
     with torch.no_grad():
-        _ = model(torch.zeros((1, 1, h, w)))
+        _ = model(torch.zeros(input_shape))

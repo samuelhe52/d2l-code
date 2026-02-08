@@ -9,6 +9,23 @@ from utils.data import (
     TimeMachineData,
 )
 
+
+class RNNConciseModel(nn.Module):
+    """Adapter model for registry-driven profiling."""
+
+    def __init__(self, vocab_size: int = 100, num_hiddens: int = 32):
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.rnnlm = RNNLM(
+            vocab_size=vocab_size,
+            num_hiddens=num_hiddens,
+        )
+
+    def forward(self, X):
+        X = X.type(torch.long) % self.vocab_size
+        logits, _ = self.rnnlm(X)
+        return logits
+
 if __name__ == "__main__":
     hparams = {
         'seq_len': 32,

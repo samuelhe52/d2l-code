@@ -14,6 +14,29 @@ from utils.data import (
     TimeMachineData,
 )
 
+
+class GRULM(nn.Module):
+    """Adapter model for registry-driven profiling."""
+
+    def __init__(self, vocab_size: int = 100, num_hiddens: int = 256):
+        super().__init__()
+        self.vocab_size = vocab_size
+        rnn = nn.GRU(
+            input_size=vocab_size,
+            hidden_size=num_hiddens,
+            batch_first=False,
+        )
+        self.rnnlm = RNNLM(
+            vocab_size=vocab_size,
+            num_hiddens=num_hiddens,
+            rnn=rnn,
+        )
+
+    def forward(self, X):
+        X = X.type(torch.long) % self.vocab_size
+        logits, _ = self.rnnlm(X)
+        return logits
+
 if __name__ == "__main__":
     hparams = {
         'seq_len': 48,
