@@ -3,7 +3,6 @@ import collections
 import torch
 from torch import nn, Tensor
 import torch.nn.functional as F
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from utils.enc_dec import Encoder, Decoder, EncoderDecoder
 from utils.training import RNNTrainer, TrainingConfig, TrainingLogger
 from utils.data.mt_data import (
@@ -29,18 +28,7 @@ class Seq2SeqEncoder(Encoder):
         # X shape: (batch_size, seq_len)
         embs = self.embedding(X.T.to(torch.long))
         # embs shape: (seq_len, batch_size, embed_size)
-        src_valid_len = args[0] if len(args) > 0 else None
-        if src_valid_len is not None:
-            lengths = src_valid_len.to("cpu")
-            packed = pack_padded_sequence(
-                embs, lengths, enforce_sorted=False
-            )
-            outputs, state = self.rnn(packed)
-            outputs, _ = pad_packed_sequence(
-                outputs, total_length=embs.shape[0]
-            )
-        else:
-            outputs, state = self.rnn(embs)
+        outputs, state = self.rnn(embs)
         # outputs shape: (seq_len, batch_size, num_hiddens)
         # state shape: (num_layers, batch_size, num_hiddens)
         return outputs, state
@@ -63,14 +51,23 @@ class Seq2SeqDecoder(Decoder):
         self.dense = nn.Linear(num_hiddens, vocab_size)
         
     def preprocess_state(self, enc_outputs, *args):
-        return enc_outputs
+        outputs, hidden_state = enc_outputs
+        src_valid_len = args[0] if len(args) > 0 else None
+        return outputs, hidden_state, src_valid_len
     
-    def forward(self, X: Tensor, state: Tuple[Tensor, Tensor]) \
-        -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
+    def forward(self, X: Tensor, state: Tuple[Tensor, Tensor, Tensor | None]) \
+        -> Tuple[Tensor, Tuple[Tensor, Tensor, Tensor | None]]:
         embs = self.embedding(X.T.to(torch.long))
         # Shape: (seq_len, batch_size, embed_size)
-        enc_outputs, hidden_state = state
-        context = enc_outputs[-1]
+        enc_outputs, hidden_state, src_valid_len = state
+        if src_valid_len is None:
+            context = enc_outputs[-1]
+        else:
+            lengths = src_valid_len.to(torch.long).clamp_min(1) - 1
+            batch_idx = torch.arange(
+                enc_outputs.shape[1], device=enc_outputs.device
+            )
+            context = enc_outputs[lengths, batch_idx]
         # Shape: (batch_size, num_hiddens)
         # Repeat the context vector for each time step
         # Context shape: (seq_len, batch_size, num_hiddens)
@@ -81,7 +78,7 @@ class Seq2SeqDecoder(Decoder):
         # Raw outputs shape: (seq_len, batch_size, num_hiddens)
         outputs = self.dense(outputs).permute(1, 2, 0)
         # outputs shape: (batch_size, vocab_size, seq_len)
-        return outputs, (enc_outputs, hidden_state)
+        return outputs, (enc_outputs, hidden_state, src_valid_len)
     
 
 class Seq2Seq(EncoderDecoder):
@@ -154,7 +151,7 @@ def bleu(pred_seq: str, label_seq: str, k: int) -> float:
 if __name__ == "__main__":
     hparams = {
         'seq_len': 20,
-        'batch_size': 256,
+        'batch_size': 128,
         'num_epochs': 30,
         'lr': 0.005,
         'grad_clip': 1.0,
@@ -243,3 +240,4 @@ if __name__ == "__main__":
         translation = [t for t in translation if t != '<pad>']
         print(f'{en} => {translation}, bleu,'
             f'{bleu(" ".join(translation), de, k=2):.3f}')
+        
