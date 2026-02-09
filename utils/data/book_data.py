@@ -480,7 +480,7 @@ class AustenCompilationData(FusedBookData):
         )
 
 
-def book_data_loader(
+def book_dataloader(
     book_data: BookData, batch_size: int, train_ratio: float = 0.8, train: bool = True
 ) -> DataLoader:
     """Create a DataLoader for the given BookData dataset.

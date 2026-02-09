@@ -1,5 +1,5 @@
 from utils.data.book_data import (
-    book_data_loader,
+    book_dataloader,
     PrideAndPrejudiceData,
     TimeMachineData,
     AustenCompilationData
@@ -14,7 +14,7 @@ if __name__ == "__main__":
     print(f'Least frequent tokens: {data.vocab.token_freqs[-10:]}')
 
     data = TimeMachineData(seq_len=10, use_chars=True)
-    train_loader = book_data_loader(
+    train_loader = book_dataloader(
         data, batch_size=2, train=True
     )
     

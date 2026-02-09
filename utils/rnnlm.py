@@ -91,11 +91,8 @@ class RNNLM(nn.Module):
         Returns:
             Tensor: Output tensor of shape (batch_size, vocab_size, seq_len).
         """
-        seq_len, batch_size, _ = rnn_outputs.shape
-        merged = rnn_outputs.reshape(-1, rnn_outputs.shape[-1])
-        outputs = self.linear(merged)
-        # Restore (seq_len, batch_size, vocab_size) before putting batch first
-        outputs = outputs.reshape(seq_len, batch_size, self.vocab_size)
+        outputs = self.linear(rnn_outputs)
+        # outputs shape: (seq_len, batch_size, vocab_size)
         return outputs.permute(1, 2, 0)
 
     def one_hot(self, X: Tensor) -> Tensor:

@@ -7,23 +7,8 @@ from torch import nn, Tensor
 
 from .base import BaseTrainer
 
-
-def perplexity(y_hat: Tensor, y: Tensor) -> float:
-    """Compute perplexity given model predictions and true labels.
-
-    Args:
-        y_hat: Predicted logits of shape (batch_size, vocab_size) or similar.
-        y: True labels of shape (batch_size,) or (batch_size, seq_len).
-
-    Returns:
-        Perplexity as a float.
-    """
-    cross_entropy = nn.CrossEntropyLoss()(y_hat, y).item()
-    return torch.exp(torch.tensor(cross_entropy)).item()
-
-
 class RNNTrainer(BaseTrainer):
-    """Trainer for RNN-based language models.
+    """Trainer for RNN-based models.
 
     Uses CrossEntropyLoss by default and tracks perplexity as the primary metric.
     Supports gradient clipping via ``grad_clip`` in config.
@@ -53,8 +38,12 @@ class RNNTrainer(BaseTrainer):
     def compute_metrics(self, y_hat: Tensor, y: Tensor, loss: float) -> dict[str, float]:
         return {
             "loss": loss,
-            "ppl": perplexity(y_hat, y),
+            "ppl": self.perplexity(loss),
         }
+
+    def perplexity(self, loss: float) -> float:
+        """Compute perplexity from model outputs and targets."""
+        return torch.exp(torch.tensor(loss)).item()
 
     def format_train_metrics(self, metrics: dict[str, float]) -> dict[str, str]:
         return {

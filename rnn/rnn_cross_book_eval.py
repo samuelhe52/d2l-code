@@ -10,7 +10,7 @@ from utils.data.book_data import (
     TimeMachineData,
     PrideAndPrejudiceData,
     WarOfTheWorldsData,
-    book_data_loader,
+    book_dataloader,
 )
 
 
@@ -33,7 +33,7 @@ def evaluate_dataset(
 ) -> float:
     """Compute perplexity on a dataset with optional train/val split."""
     if use_val_split:
-        loader = book_data_loader(dataset, batch_size=batch_size, train=False)
+        loader = book_dataloader(dataset, batch_size=batch_size, train=False)
     else:
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
     config = TrainingConfig(num_epochs=1, lr=0.01, loss_fn=nn.CrossEntropyLoss(), device=device)

@@ -7,7 +7,7 @@ from utils.training import RNNTrainer, TrainingConfig
 from utils.data import Vocab
 from utils.data.book_data import (
     TimeMachineData,
-    book_data_loader,
+    book_dataloader,
 )
     
 class RNNScratch(nn.Module):
@@ -148,10 +148,10 @@ class RNNScratch(nn.Module):
     
 if __name__ == "__main__":
     data = TimeMachineData(seq_len=32, use_chars=True)
-    train_loader = book_data_loader(
+    train_loader = book_dataloader(
         data, batch_size=1024, train=True
     )
-    val_loader = book_data_loader(
+    val_loader = book_dataloader(
         data, batch_size=1024, train=False
     )
     model = RNNScratch(

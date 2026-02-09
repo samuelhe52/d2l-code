@@ -5,7 +5,7 @@ from utils.io import load_model
 from utils.rnnlm import RNNLM
 from utils.training import RNNTrainer, TrainingConfig, TrainingLogger
 from utils.data.book_data import (
-    book_data_loader,
+    book_dataloader,
     TimeMachineData,
 )
 
@@ -38,10 +38,10 @@ if __name__ == "__main__":
     }
     
     data = TimeMachineData(seq_len=hparams['seq_len'], use_chars=True)
-    train_loader = book_data_loader(
+    train_loader = book_dataloader(
         data, batch_size=hparams['batch_size'], train=True
     )
-    val_loader = book_data_loader(
+    val_loader = book_dataloader(
         data, batch_size=hparams['batch_size'], train=False
     )
     model = RNNLM(
