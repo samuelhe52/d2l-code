@@ -150,10 +150,10 @@ def bleu(pred_seq: str, label_seq: str, k: int) -> float:
     
 if __name__ == "__main__":
     hparams = {
-        'seq_len': 20,
+        'seq_len': 25,
         'batch_size': 128,
-        'num_epochs': 30,
-        'lr': 0.005,
+        'num_epochs': 15,
+        'lr': 2e-3,
         'grad_clip': 1.0,
         'embed_size': 256,
         'num_hiddens': 512,
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     
     data = GerEngDataset(
         seq_len=hparams['seq_len'],
-        # token_min_freq=2,
+        token_min_freq=5,
         # total_samples=20000,
     )
     train_loader = mt_dataloader(
@@ -217,17 +217,32 @@ if __name__ == "__main__":
                 if "weight" in param:
                     nn.init.xavier_uniform_(m._parameters[param])
 
-    model.apply(init_seq2seq)
-    trainer = Seq2SeqTrainer(model, train_loader, val_loader, config)
-    trainer.train()
-    logger.summary()
-    
+    # model.apply(init_seq2seq)
+    # trainer = Seq2SeqTrainer(model, train_loader, val_loader, config)
+    # trainer.train()
+    # logger.summary()
     
     model: Seq2Seq = load_model('./models/seq2seq_mt_gereng.pt',
                                 model, device=torch.device('cpu'))
-    engs = ['go .', 'i lost .', 'he\'s calm .', 'i\'m home .']
+    engs = ['go .', 'i lost .', 'he\'s calm .', 'i\'m home .',
+            'He ran out of the door and into the garden .',
+            'There is little hope .',
+            'You should have hope .',
+            'We are all lost .',
+            'I did not mean that .',
+            'She has a beautiful voice .',
+            'The weather is nice today .',
+            'Do you like reading books ?',]
     des = ['geh .', 'ich habe mich verirrt .',
-            'er ist ruhig .', 'ich bin zu hause .']
+            'er ist ruhig .', 'ich bin zu hause .',
+            'Er rannte aus der Tür und in den Garten .',
+            'Es gibt wenig Hoffnung .',
+            'Du solltest Hoffnung haben .',
+            'Wir sind alle verloren .',
+            'Das habe ich nicht so gemeint .',
+            'Sie hat eine schöne Stimme .',
+            'Das Wetter ist heute schön .',
+            'Liest du gerne Bücher ?']
     preds, _ = model.generate(
         data.build(engs, des),
         torch.device('cpu'),

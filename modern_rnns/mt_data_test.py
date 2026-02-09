@@ -6,7 +6,10 @@ from utils.data.mt_data import (
 )
 
 if __name__ == "__main__":
-    data = GerEngDataset(seq_len=15, token_min_freq=2, total_samples=800)
+    data = GerEngDataset(
+        seq_len=25,
+        token_min_freq=5
+    )
     train_loader = mt_dataloader(data, batch_size=3)
     print(f"Vocab size (source): {len(data.src_vocab)}")
     for ((X, tgt_array, X_valid_len), y_label) in train_loader:
