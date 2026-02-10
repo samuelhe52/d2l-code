@@ -1,6 +1,8 @@
 """Datasets for training machine translation models."""
+import math
 from typing import Tuple, Optional
 import re
+import collections
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset, DataLoader
@@ -377,6 +379,7 @@ class GerEngDataset(TatoebaDataset):
         ]
         
         return [src for src, _ in pairs], [tgt for _, tgt in pairs]
+    
 
 def mt_dataloader(
     tatoeba_data: TatoebaDataset, batch_size: int,
@@ -400,3 +403,35 @@ def mt_dataloader(
     else:
         subset = torch.utils.data.Subset(tatoeba_data, indices[n_train:])
     return DataLoader(subset, batch_size=batch_size, shuffle=train)
+
+    
+def bleu(pred_seq: str, label_seq: str, k: int) -> float:
+    """Compute the BLEU."""
+    pred_tokens, label_tokens = pred_seq.split(' '), label_seq.split(' ')
+    len_pred, len_label = len(pred_tokens), len(label_tokens)
+    score = math.exp(min(0, 1 - len_label / len_pred))
+    for n in range(1, min(k, len_pred) + 1):
+        num_matches, label_subs = 0, collections.defaultdict(int)
+        for i in range(len_label - n + 1):
+            label_subs[' '.join(label_tokens[i: i + n])] += 1
+        for i in range(len_pred - n + 1):
+            if label_subs[' '.join(pred_tokens[i: i + n])] > 0:
+                num_matches += 1
+                label_subs[' '.join(pred_tokens[i: i + n])] -= 1
+        score *= math.pow(num_matches / (len_pred - n + 1), math.pow(0.5, n))
+    return score
+
+
+def eval_translations(srcs: list[str],
+                      dsts: list[str],
+                      preds: list[list[int]],
+                      data: TatoebaDataset,
+                      bleu_k: int = 2) -> None:
+    """Evaluate translations using BLEU score."""
+    for en, de, p in zip(srcs, dsts, preds):
+        translation = [t for t in data.tgt_vocab.to_tokens(p)]
+        if '<eos>' in translation:
+            translation = translation[:translation.index('<eos>') + 1]
+        translation = [t for t in translation if t != '<pad>']
+        print(f'{en} => {translation}, bleu,'
+            f'{bleu(" ".join(translation[:-1]), de.lower(), k=bleu_k):.3f}')

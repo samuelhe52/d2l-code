@@ -8,7 +8,8 @@ from utils.training import RNNTrainer, TrainingConfig, TrainingLogger
 from utils.data.mt_data import (
     FraEngDataset,
     GerEngDataset,
-    mt_dataloader
+    mt_dataloader,
+    eval_translations,
 )
 from utils.io import load_model
 from typing import Optional, Tuple
@@ -134,23 +135,6 @@ class Seq2SeqTrainer(RNNTrainer):
         return self.model(X_src, X_tgt, src_valid_len)
     
     
-def bleu(pred_seq: str, label_seq: str, k: int) -> float:
-    """Compute the BLEU."""
-    pred_tokens, label_tokens = pred_seq.split(' '), label_seq.split(' ')
-    len_pred, len_label = len(pred_tokens), len(label_tokens)
-    score = math.exp(min(0, 1 - len_label / len_pred))
-    for n in range(1, min(k, len_pred) + 1):
-        num_matches, label_subs = 0, collections.defaultdict(int)
-        for i in range(len_label - n + 1):
-            label_subs[' '.join(label_tokens[i: i + n])] += 1
-        for i in range(len_pred - n + 1):
-            if label_subs[' '.join(pred_tokens[i: i + n])] > 0:
-                num_matches += 1
-                label_subs[' '.join(pred_tokens[i: i + n])] -= 1
-        score *= math.pow(num_matches / (len_pred - n + 1), math.pow(0.5, n))
-    return score
-    
-    
 if __name__ == "__main__":
     hparams = {
         'seq_len': 25,
@@ -229,11 +213,4 @@ if __name__ == "__main__":
         torch.device('cpu'),
         max_len=50)
     preds = preds.cpu().tolist()
-    for en, de, p in zip(engs, des, preds):
-        translation = [t for t in data.tgt_vocab.to_tokens(p)]
-        if '<eos>' in translation:
-            translation = translation[:translation.index('<eos>') + 1]
-        translation = [t for t in translation if t != '<pad>']
-        print(f'{en} => {translation}, bleu,'
-            f'{bleu(" ".join(translation[:-1]), de.lower(), k=2):.3f}')
-        
+    eval_translations(srcs=engs, dsts=des, preds=preds, data=data)
