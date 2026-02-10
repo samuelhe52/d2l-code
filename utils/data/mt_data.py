@@ -1,5 +1,6 @@
 """Datasets for training machine translation models."""
 from typing import Tuple, Optional
+import re
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset, DataLoader
@@ -54,20 +55,24 @@ class TatoebaDataset(Dataset):
         
         raw = self._load_data(data_url, md5_hash, data_file_name)
         src_sentences, tgt_sentences = self._preprocess(raw, total_samples)
-        src_tokenized = [self._tokenize(sent) for sent in src_sentences]
-        tgt_tokenized = [self._tokenize(sent) for sent in tgt_sentences]
-        
-        self.src_vocab = self._build_vocab(src_tokenized, token_min_freq)
-        self.tgt_vocab = self._build_vocab(tgt_tokenized, token_min_freq)
-        
+        src_tokenized = [sent.split(' ') + ['<eos>'] for sent in src_sentences]
+        tgt_tokenized = [sent.split(' ') + ['<eos>'] for sent in tgt_sentences]
+
+        # Pass nested lists directly — Vocab handles flattening internally
+        self.src_vocab = Vocab(src_tokenized,
+                               min_freq=token_min_freq,
+                               reserved_tokens=['<pad>', '<bos>', '<eos>'])
+        self.tgt_vocab = Vocab(tgt_tokenized,
+                               min_freq=token_min_freq,
+                               reserved_tokens=['<pad>', '<bos>', '<eos>'])
+
         tgt_array_full = self._build_arrays(
             tgt_tokenized, self.tgt_vocab, is_tgt=True)
-        
-        self.src_array = self._build_arrays(
-            src_tokenized, self.src_vocab, is_tgt=False)
+
+        self.src_array, self.src_valid_len = self._build_arrays(
+            src_tokenized, self.src_vocab, is_tgt=False,
+            return_valid_len=True)
         self.tgt_array = tgt_array_full[:, :-1]
-        self.src_valid_len = (self.src_array != self.src_vocab['<pad>']) \
-            .type(torch.int32).sum(dim=1)
         self.label_array = tgt_array_full[:, 1:]
         
     def __len__(self) -> int:
@@ -138,80 +143,108 @@ class TatoebaDataset(Dataset):
         with open(file_path, "r") as f:
             return f.read()
 
+    # Single translate table: normalise unicode whitespace AND insert a
+    # space before every punctuation character, all in one C-level pass.
+    _CLEAN_TABLE = str.maketrans({
+        '\u202f': ' ', '\xa0': ' ', '\u200b': '', '\u2009': ' ',
+        ',': ' ,', '.': ' .', '!': ' !', '?': ' ?',
+        ';': ' ;', ':': ' :', "'": " '", '"': ' "', ')': ' )',
+    })
+    # Collapse runs of spaces left over from the translate step.
+    _MULTI_SPACE_RE = re.compile(r' {2,}')
+
     def _preprocess(self, content: str, total_samples: Optional[int] = None) \
         -> tuple[list[str], list[str]]:
         """
         Preprocess the raw content of the dataset.
-        
+
         Args:
             content (str): Raw content of the dataset file.
-            total_samples (Optional[int]): If specified, limits the dataset to this many samples.
+            total_samples (Optional[int]): If specified, limits the dataset
+                to this many samples.
         Returns:
             tuple[list[str], list[str]]: Lists of source and target sentences.
         """
+        # Split lines first so we can truncate *before* doing any
+        # per-character work — halves time when total_samples is set.
+        lines = content.split('\n')
         if total_samples is not None:
-            content = '\n'.join(content.splitlines()[:total_samples])
-        # Clean up unicode spaces and normalize case
-        content = content \
-            .replace('\u202f', ' ').replace('\xa0', ' ') \
-            .replace('\u200b', '').replace('\u2009', '')
-        content = content.lower().strip()
-        # Insert space between words and punctuation marks
-        no_space = lambda char, prev_char: char in ',.!?' and prev_char != ' '
-        content = ''.join([
-            ' ' + char if i > 0 and no_space(char, content[i - 1]) else char
-            for i, char in enumerate(content)
-        ])
-        lines = content.splitlines()
-        src_sentences = []
-        tgt_sentences = []
+            lines = lines[:total_samples]
+
+        tr = self._CLEAN_TABLE
+        collapse = self._MULTI_SPACE_RE.sub
+        src_sentences: list[str] = []
+        tgt_sentences: list[str] = []
         for line in lines:
-            parts = line.split("\t") # Tatoeba data is tab-separated
+            parts = line.split('\t', maxsplit=2)
             if len(parts) >= 2:
-                src_sentences.append(parts[0].strip())
-                tgt_sentences.append(parts[1].strip())
+                s = collapse(' ', parts[0].translate(tr).lower()).strip()
+                t = collapse(' ', parts[1].translate(tr).lower()).strip()
+                src_sentences.append(s)
+                tgt_sentences.append(t)
         return src_sentences, tgt_sentences
-    
-    def _tokenize(self, sentence: str) -> list[str]:
-        """Tokenize a sentence into words."""
-        return sentence.split(' ') + ['<eos>']
-    
-    def _build_vocab(self, 
-                     tokenized_sentences: list[list[str]],
-                     min_freq: int) -> Vocab:
-        """Build a vocabulary from tokenized sentences."""
-        flattened = [token for sentence in tokenized_sentences for token in sentence]
-        return Vocab(flattened,
-                     min_freq=min_freq,
-                     reserved_tokens=['<pad>', '<bos>', '<eos>'])
     
     def _build_arrays(self,
                       tokenized_sentences: list[list[str]],
                       vocab: Vocab,
-                      is_tgt: bool) -> Tensor:
+                      is_tgt: bool,
+                      return_valid_len: bool = False,
+                      ) -> Tensor | Tuple[Tensor, Tensor]:
         """
         Convert tokenized sentences to arrays of token indices.
         Applies padding and truncation as necessary.
-        
+
+        Builds a single flat Python list of indices and materialises one
+        tensor — avoids N intermediate tensor allocations + ``torch.stack``.
+
         Args:
             tokenized_sentences (list[list[str]]): List of tokenized sentences.
             vocab (Vocab): Vocabulary to convert tokens to indices.
-            is_tgt (bool): Whether the sentences are target sentences. If True, \
+            is_tgt (bool): Whether the sentences are target sentences. If True,
                 a <bos> token is added at the beginning.
+            return_valid_len (bool): If True, also return a tensor of valid
+                (non-pad) lengths per sentence.
         Returns:
-            Tensor: Array of shape (num_sentences, seq_len) containing token indices.
+            Tensor | Tuple[Tensor, Tensor]: Array of shape
+                (num_sentences, seq_len) containing token indices, and
+                optionally a (num_sentences,) int32 valid-length tensor.
         """
-        arrays = []
+        # Direct dict access bypasses Vocab type-dispatch overhead
+        t2i = vocab.token_to_idx
+        unk = vocab.unk
+        pad = t2i.get('<pad>', unk)
+        bos = t2i.get('<bos>', unk) if is_tgt else 0  # unused when not tgt
+        seq_len = self.seq_len
+        n = len(tokenized_sentences)
+
+        flat: list[int] = []
+        valid_lens: list[int] | None = [] if return_valid_len else None
+
         for sentence in tokenized_sentences:
             if is_tgt:
-                sentence = ['<bos>'] + sentence
-            if len(sentence) > self.seq_len:
-                sentence = sentence[:self.seq_len]
+                row = [bos]
+                for tok in sentence:
+                    row.append(t2i.get(tok, unk))
             else:
-                sentence += ['<pad>'] * (self.seq_len - len(sentence))
-            indices = vocab[sentence]
-            arrays.append(torch.tensor(indices, dtype=torch.long))
-        return torch.stack(arrays)
+                row = [t2i.get(tok, unk) for tok in sentence]
+
+            rlen = len(row)
+            if rlen >= seq_len:
+                flat.extend(row[:seq_len])
+                if valid_lens is not None:
+                    valid_lens.append(seq_len)
+            else:
+                flat.extend(row)
+                flat.extend([pad] * (seq_len - rlen))
+                if valid_lens is not None:
+                    valid_lens.append(rlen)
+
+        result = torch.tensor(flat, dtype=torch.long).view(n, seq_len)
+
+        if return_valid_len:
+            vl = torch.tensor(valid_lens, dtype=torch.int32)
+            return result, vl
+        return result
 
     def build(self,
               src_sentences: list[str],
@@ -232,15 +265,14 @@ class TatoebaDataset(Dataset):
             supplied sentences:
             ``((src_array, tgt_array, src_valid_len), label_array)``
         """
-        src_tokenized = [self._tokenize(s.lower().strip())
+        src_tokenized = [s.lower().strip().split(' ') + ['<eos>']
                          for s in src_sentences]
-        src_array = self._build_arrays(
-            src_tokenized, self.src_vocab, is_tgt=False)
-        src_valid_len = (src_array != self.src_vocab['<pad>']) \
-            .type(torch.int32).sum(dim=1)
+        src_array, src_valid_len = self._build_arrays(
+            src_tokenized, self.src_vocab, is_tgt=False,
+            return_valid_len=True)
 
         if tgt_sentences is not None:
-            tgt_tokenized = [self._tokenize(s.lower().strip())
+            tgt_tokenized = [s.lower().strip().split(' ') + ['<eos>']
                              for s in tgt_sentences]
             tgt_full = self._build_arrays(
                 tgt_tokenized, self.tgt_vocab, is_tgt=True)
