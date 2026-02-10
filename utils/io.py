@@ -1,5 +1,6 @@
 """Model I/O utilities."""
 
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Union
 
@@ -9,17 +10,40 @@ from torch.nn import Module
 PathLike = Union[str, Path]
 
 
+def _resolve_save_path(model: Module, save_path: PathLike) -> Path:
+    """Resolve a model save path.
+
+    If ``save_path`` is a directory or has no suffix, generate a unique filename
+    based on the model class and timestamp.
+    """
+    path = Path(save_path)
+    if path.suffix:
+        return path
+
+    dir_path = path
+    dir_path.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    model_name = model.__class__.__name__
+    base_name = f"{model_name}_{timestamp}"
+    candidate = dir_path / f"{base_name}.pt"
+    counter = 1
+    while candidate.exists():
+        candidate = dir_path / f"{base_name}_{counter}.pt"
+        counter += 1
+    return candidate
+
+
 def save_model(model: Module, save_path: PathLike) -> None:
     """Save model parameters to a file.
-    
+
     Args:
         model: PyTorch model to save
-        save_path: Path to save model parameters
+        save_path: File path or directory to save model parameters
     """
-    save_path = Path(save_path)
-    save_path.parent.mkdir(parents=True, exist_ok=True)
-    torch.save(model.state_dict(), save_path)
-    print(f'Model saved to {save_path}')
+    resolved_path = _resolve_save_path(model, save_path)
+    resolved_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(model.state_dict(), resolved_path)
+    print(f'Model saved to {resolved_path}')
 
 
 def load_model(load_path: PathLike, model: Module,
