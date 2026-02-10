@@ -166,7 +166,7 @@ if __name__ == "__main__":
     
     data = GerEngDataset(
         seq_len=hparams['seq_len'],
-        token_min_freq=4,
+        token_min_freq=5,
         # total_samples=20000,
     )
     train_loader = mt_dataloader(
