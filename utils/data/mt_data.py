@@ -148,7 +148,7 @@ class TatoebaDataset(Dataset):
     _CLEAN_TABLE = str.maketrans({
         '\u202f': ' ', '\xa0': ' ', '\u200b': '', '\u2009': ' ',
         ',': ' ,', '.': ' .', '!': ' !', '?': ' ?',
-        ';': ' ;', ':': ' :', "'": " '", '"': ' "', ')': ' )',
+        ';': ' ;', ':': ' :', ')': ' )',
     })
     # Collapse runs of spaces left over from the translate step.
     _MULTI_SPACE_RE = re.compile(r' {2,}')
