@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any, Iterable, Callable
 
 import torch
 from torch import nn, Tensor
@@ -99,8 +99,13 @@ class BaseTrainer(ABC):
 
     @property
     @abstractmethod
-    def default_loss_fn(self) -> nn.Module:
-        """Return the default loss function for this task."""
+    def default_loss_fn(self) -> Callable[..., Tensor]:
+        """
+        Return the default loss function for this task
+        
+        Returns:
+            A callable loss function (nn.Module or custom callable).
+        """
         ...
 
     @abstractmethod

@@ -1,6 +1,6 @@
 import torch
 from torch import nn, Tensor
-from typing import Tuple
+from typing import Tuple, Optional
 from abc import ABC, abstractmethod
 
 class Encoder(ABC, nn.Module):
@@ -73,7 +73,7 @@ class EncoderDecoder(nn.Module):
         self,
         batch: Tuple,
         device: torch.device,
-        max_len: int | None = None,
+        max_len: Optional[int] = None,
         save_attention_weights: bool = False,
     ) -> Tuple[Tensor, list[Tensor]]:
         """

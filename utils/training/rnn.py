@@ -22,7 +22,7 @@ class RNNTrainer(BaseTrainer):
     """
 
     @property
-    def default_loss_fn(self) -> nn.Module:
+    def default_loss_fn(self):
         return nn.CrossEntropyLoss()
 
     def forward(self, X: Tensor) -> Tensor:

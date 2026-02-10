@@ -36,15 +36,13 @@ class Seq2SeqEncoder(Encoder):
 
 class Seq2SeqDecoder(Decoder):
     """
-
-    Args:
-        Decoder (_type_): _description_
+    Sequence-to-Sequence Decoder for Machine Translation, implemented using GRU.
     """
     def __init__(self, vocab_size: int, embed_size: int,
                  num_hiddens: int, num_layers: int, dropout: float = 0.0):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, embed_size)
-        # We always concatenate the context vector and the input embedding
+        # Concatenate the context vector and the input embedding
         self.rnn = nn.GRU(embed_size + num_hiddens, num_hiddens,
                           num_layers, dropout=dropout, batch_first=False)
         # Dense layer to convert decoder output vectors to vocabulary space
@@ -58,19 +56,24 @@ class Seq2SeqDecoder(Decoder):
     def forward(self, X: Tensor, state: Tuple[Tensor, Tensor, Tensor | None]) \
         -> Tuple[Tensor, Tuple[Tensor, Tensor, Tensor | None]]:
         embs = self.embedding(X.T.to(torch.long))
-        # Shape: (seq_len, batch_size, embed_size)
+        # embs shape: (seq_len, batch_size, embed_size)
+        # enc_outputs shape: (seq_len, batch_size, num_hiddens)
         enc_outputs, hidden_state, src_valid_len = state
+        # src_valid_len shape: (batch_size,)
         if src_valid_len is None:
-            context = enc_outputs[-1]
+            # Use -1 index to get the last output for all sequences
+            context = enc_outputs[-1] # Shape: (batch_size, num_hiddens)
         else:
             lengths = src_valid_len.to(torch.long).clamp_min(1) - 1
             batch_idx = torch.arange(
                 enc_outputs.shape[1], device=enc_outputs.device
             )
+            # Advanced indexing to get the last valid output for each sequence
             context = enc_outputs[lengths, batch_idx]
         # Shape: (batch_size, num_hiddens)
         # Repeat the context vector for each time step
-        # Context shape: (seq_len, batch_size, num_hiddens)
+        # Original context shape: (batch_size, num_hiddens)
+        # Repeated context shape: (seq_len, batch_size, num_hiddens)
         context = context.repeat(embs.shape[0], 1, 1)
         # Concatenate the context vector with the input embeddings
         rnn_inputs = torch.cat((embs, context), dim=-1)
@@ -173,21 +176,17 @@ if __name__ == "__main__":
         data, batch_size=hparams['batch_size'], train=False
     )
     
+    shared = {
+        'embed_size': hparams['embed_size'],
+        'num_hiddens': hparams['num_hiddens'],
+        'num_layers': hparams['num_layers'],
+        'dropout': hparams['dropout'],
+    }
+    
+    encoder = Seq2SeqEncoder(vocab_size=len(data.src_vocab), **shared)
+    decoder = Seq2SeqDecoder(vocab_size=len(data.tgt_vocab), **shared)
     model = Seq2Seq(
-        encoder=Seq2SeqEncoder(
-            vocab_size=len(data.src_vocab),
-            embed_size=hparams['embed_size'],
-            num_hiddens=hparams['num_hiddens'],
-            num_layers=hparams['num_layers'],
-            dropout=hparams['dropout'],
-        ),
-        decoder=Seq2SeqDecoder(
-            vocab_size=len(data.tgt_vocab),
-            embed_size=hparams['embed_size'],
-            num_hiddens=hparams['num_hiddens'],
-            num_layers=hparams['num_layers'],
-            dropout=hparams['dropout'],
-        ),
+        encoder=encoder, decoder=decoder,
         pad_token_index=data.tgt_vocab['<pad>']
     )
     
@@ -217,10 +216,10 @@ if __name__ == "__main__":
                 if "weight" in param:
                     nn.init.xavier_uniform_(m._parameters[param])
 
-    # model.apply(init_seq2seq)
-    # trainer = Seq2SeqTrainer(model, train_loader, val_loader, config)
-    # trainer.train()
-    # logger.summary()
+    model.apply(init_seq2seq)
+    trainer = Seq2SeqTrainer(model, train_loader, val_loader, config)
+    trainer.train()
+    logger.summary()
     
     model: Seq2Seq = load_model('./models/seq2seq_mt_gereng.pt',
                                 model, device=torch.device('cpu'))
@@ -247,7 +246,7 @@ if __name__ == "__main__":
         data.build(engs, des),
         torch.device('cpu'),
         max_len=50)
-    preds = preds.cpu().numpy().tolist()
+    preds = preds.cpu().tolist()
     for en, de, p in zip(engs, des, preds):
         translation = [t for t in data.tgt_vocab.to_tokens(p)]
         if '<eos>' in translation:
