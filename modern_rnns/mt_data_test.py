@@ -1,5 +1,6 @@
 import math
 import torch
+import time
 import matplotlib.pyplot as plt
 from utils.data.mt_data import (
     FraEngDataset,
@@ -57,10 +58,14 @@ def visualize_seq_len():
     plt.show()
 
 if __name__ == "__main__":
+    # Time the data loading process
+    start_time = time.time()
     data = GerEngDataset(
-        seq_len=1000, # Enough for any sample
-        # token_min_freq=5
+        seq_len=25,
+        token_min_freq=4
     )
+    end_time = time.time()
+    print(f"Data loading time: {end_time - start_time:.2f} seconds")
     train_loader = mt_dataloader(data, batch_size=3)
     # print(f"Vocab size (source): {len(data.src_vocab)}")
     # print(f"Vocab size (target): {len(data.tgt_vocab)}")
