@@ -332,6 +332,51 @@ class GerEngDataset(TatoebaDataset):
             data_root=data_root,
             total_samples=total_samples
         )
+        
+    @property
+    def test_sentences(self) -> Tuple[list[str], list[str]]:
+        """A small set of German-English sentence pairs for testing."""
+        pairs = [
+            ('go .', 'geh .'),
+            ('i lost .', 'ich habe mich verirrt .'),
+            ('he\'s calm .', 'er ist ruhig .'),
+            ('i\'m home .', 'ich bin zu hause .'),
+            ('He ran out of the door and into the garden .',
+             'Er rannte aus der Tür und in den Garten .'),
+            ('There is little hope .', 'Es gibt wenig Hoffnung .'),
+            ('You should have hope .', 'Du solltest Hoffnung haben .'),
+            ('We are all lost .', 'Wir sind alle verloren .'),
+            ('I did not mean that .', 'Das habe ich nicht so gemeint .'),
+            ('She has a beautiful voice .', 'Sie hat eine schöne Stimme .'),
+            ('The weather is nice today .', 'Das Wetter ist heute schön .'),
+            ('Do you like reading books ?', 'Liest du gerne Bücher ?'),
+            ('I love programming .', 'Ich liebe Programmierung .'),
+            ('Let\'s try a more complex sentence which uses multiple clauses and advanced vocabulary .',
+             'Versuchen wir einen komplexeren Satz, der mehrere Klauseln und erweiterten Wortschatz verwendet .'),
+            ('Obviously, for less common words, the model struggles.',
+             'Offensichtlich hat das Modell bei weniger gebräuchlichen Wörtern Schwierigkeiten.'),
+            ('I love you.', 'Ich liebe dich.'),
+            ('I see a girl with a cat .',
+             'Ich sehe ein Mädchen mit einer Katze .'),
+            ('The quick brown fox jumps over the lazy dog .',
+             'Der schnelle braune Fuchs springt über den faulen Hund .'),
+            ('Can you help me with my homework ?',
+             'Kannst du mir bei meinen Hausaufgaben helfen ?'),
+            ('This is nonsense .', 'Das ist Unsinn .'),
+            ('We need to talk .', 'Wir müssen reden .'),
+            ('Stay here .', 'Bleib hier .'),
+            ('Follow me .', 'Folge mir .'),
+            ('I am learning German .', 'Ich lerne Deutsch .'),
+            ('What is your name ?', 'Wie heißt du ?'),
+            ('Where is the bathroom ?', 'Wo ist die Toilette ?'),
+            ('How much does this cost ?', 'Wie viel kostet das ?'),
+            ('I would like a coffee .', 'Ich möchte einen Kaffee .'),
+            ('Can you help me ?', 'Kannst du mir helfen ?'),
+            ('See you later .', 'Bis später .'),
+            ('Good morning .', 'Guten Morgen .'),
+        ]
+        
+        return [src for src, _ in pairs], [tgt for _, tgt in pairs]
 
 def mt_dataloader(
     tatoeba_data: TatoebaDataset, batch_size: int,

@@ -223,40 +223,7 @@ if __name__ == "__main__":
     
     model: Seq2Seq = load_model('./models/seq2seq_mt_gereng',
                                 model, device=torch.device('cpu'))
-    engs = ['go .', 'i lost .', 'he\'s calm .', 'i\'m home .',
-            'He ran out of the door and into the garden .',
-            'There is little hope .',
-            'You should have hope .',
-            'We are all lost .',
-            'I did not mean that .',
-            'She has a beautiful voice .',
-            'The weather is nice today .',
-            'Do you like reading books ?',
-            'I love programming .',
-            'Let\'s try a more complex sentence which uses multiple clauses and advanced vocabulary .',
-            'Obviously, for less common words, the model struggles.',
-            'I love you.',
-            'I see a girl with a cat .',
-            'The quick brown fox jumps over the lazy dog .',
-            'Can you help me with my homework ?',
-            '']
-    des = ['geh .', 'ich habe mich verirrt .',
-            'er ist ruhig .', 'ich bin zu hause .',
-            'Er rannte aus der Tür und in den Garten .',
-            'Es gibt wenig Hoffnung .',
-            'Du solltest Hoffnung haben .',
-            'Wir sind alle verloren .',
-            'Das habe ich nicht so gemeint .',
-            'Sie hat eine schöne Stimme .',
-            'Das Wetter ist heute schön .',
-            'Liest du gerne Bücher ?',
-            'Ich liebe Programmierung .',
-            'Versuchen wir einen komplexeren Satz, der mehrere Klauseln und erweiterten Wortschatz verwendet .',
-            'Offensichtlich hat das Modell bei weniger gebräuchlichen Wörtern Schwierigkeiten.',
-            'Ich liebe dich.',
-            'Ich sehe ein Mädchen mit einer Katze .',
-            'Der schnelle braune Fuchs springt über den faulen Hund .',
-            'Kannst du mir bei meinen Hausaufgaben helfen ?',]
+    engs, des = data.test_sentences
     preds, _ = model.generate(
         data.build(engs, des),
         torch.device('cpu'),
@@ -268,5 +235,5 @@ if __name__ == "__main__":
             translation = translation[:translation.index('<eos>') + 1]
         translation = [t for t in translation if t != '<pad>']
         print(f'{en} => {translation}, bleu,'
-            f'{bleu(" ".join(translation), de, k=2):.3f}')
+            f'{bleu(" ".join(translation[:-1]), de.lower(), k=2):.3f}')
         
