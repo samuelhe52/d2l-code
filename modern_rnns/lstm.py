@@ -86,7 +86,7 @@ if __name__ == "__main__":
     logger.summary()
     
     # Test generation
-    model = load_model('./models/rnnlm_lstm.pt',
+    model: RNNLM = load_model('./models/rnnlm_lstm.pt',
                        model,
                        device=torch.device('cpu'))
     print(model.generate(

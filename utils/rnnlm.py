@@ -127,7 +127,9 @@ class RNNLM(nn.Module):
             num_preds (int): Number of tokens to predict.
             vocab (Vocab): Vocabulary object for mapping between tokens and indices.
             device (torch.device): Device on which the computation will be performed.
-
+            temperature (float): Temperature parameter for sampling.
+            top_k (Optional[int]): If specified, restrict sampling to the top_k tokens.
+        
         Returns:
             str: Generated text string.
         """
@@ -140,17 +142,21 @@ class RNNLM(nn.Module):
                 # The last token
                 X = torch.tensor([[outputs[-1]]], device=device)
                 Y, state = self.forward(X, state)
+                # Y shape: (batch_size=1, vocab_size, seq_len)
                 if t < len(prefix) - 1:
                     # Append the next token from prefix
                     outputs.append(vocab[prefix[t + 1]])
                     continue
 
                 logits = Y[:, :, -1] / temp
+                # logits shape: (batch_size=1, vocab_size)
                 if top_k is not None and top_k > 0:
                     k = min(int(top_k), logits.shape[1])
                     topk_vals, topk_idx = torch.topk(logits, k=k, dim=1)
+                    # topk_{vals,idx} shape: (batch_size=1, top_k)
                     probs = F.softmax(topk_vals, dim=1)
                     next_rel = torch.multinomial(probs, num_samples=1)
+                    # next_rel shape: (batch_size=1, num_samples=1)
                     next_idx = topk_idx.gather(1, next_rel)
                 else:
                     probs = F.softmax(logits, dim=1)
