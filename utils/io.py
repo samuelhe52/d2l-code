@@ -46,12 +46,20 @@ def save_model(model: Module, save_path: PathLike) -> None:
     print(f'Model saved to {resolved_path}')
 
 
+def _resolve_latest_model_path(load_path: Path) -> Path:
+    """Resolve the most recent model checkpoint from a directory."""
+    candidates = [p for p in load_path.iterdir() if p.is_file() and p.suffix == ".pt"]
+    if not candidates:
+        raise FileNotFoundError(f'No model checkpoints found in {load_path}')
+    return max(candidates, key=lambda p: p.stat().st_mtime)
+
+
 def load_model(load_path: PathLike, model: Module,
                device: Optional[torch.device] = None) -> Module:
     """Load model parameters from a file.
-    
+
     Args:
-        load_path: Path to the saved model parameters
+        load_path: Path to the saved model parameters (file or directory)
         model: PyTorch model to load parameters into
         device: Device on which to map the loaded parameters
     Returns:
@@ -60,6 +68,8 @@ def load_model(load_path: PathLike, model: Module,
     load_path = Path(load_path)
     if not load_path.exists():
         raise FileNotFoundError(f'No model found at {load_path}')
+    if load_path.is_dir():
+        load_path = _resolve_latest_model_path(load_path)
     state_dict = torch.load(load_path, weights_only=True, map_location=device)
     model.load_state_dict(state_dict)
     print(f'Model loaded from {load_path}')

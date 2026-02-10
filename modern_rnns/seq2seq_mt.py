@@ -202,7 +202,7 @@ if __name__ == "__main__":
         lr=hparams['lr'],
         grad_clip=hparams['grad_clip'],
         optimizer=optim,
-        save_path='./models/seq2seq_mt_gereng.pt',
+        save_path='./models/seq2seq_mt_gereng',
         logger=logger,
         device=torch.device('mps'),
     )
@@ -216,12 +216,12 @@ if __name__ == "__main__":
                 if "weight" in param:
                     nn.init.xavier_uniform_(m._parameters[param])
 
-    model.apply(init_seq2seq)
-    trainer = Seq2SeqTrainer(model, train_loader, val_loader, config)
-    trainer.train()
-    logger.summary()
+    # model.apply(init_seq2seq)
+    # trainer = Seq2SeqTrainer(model, train_loader, val_loader, config)
+    # trainer.train()
+    # logger.summary()
     
-    model: Seq2Seq = load_model('./models/seq2seq_mt_gereng.pt',
+    model: Seq2Seq = load_model('./models/seq2seq_mt_gereng',
                                 model, device=torch.device('cpu'))
     engs = ['go .', 'i lost .', 'he\'s calm .', 'i\'m home .',
             'He ran out of the door and into the garden .',
