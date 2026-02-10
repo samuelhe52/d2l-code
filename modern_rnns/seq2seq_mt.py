@@ -231,7 +231,15 @@ if __name__ == "__main__":
             'I did not mean that .',
             'She has a beautiful voice .',
             'The weather is nice today .',
-            'Do you like reading books ?',]
+            'Do you like reading books ?',
+            'I love programming .',
+            'Let\'s try a more complex sentence which uses multiple clauses and advanced vocabulary .',
+            'Obviously, for less common words, the model struggles.',
+            'I love you.',
+            'I see a girl with a cat .',
+            'The quick brown fox jumps over the lazy dog .',
+            'Can you help me with my homework ?',
+            '']
     des = ['geh .', 'ich habe mich verirrt .',
             'er ist ruhig .', 'ich bin zu hause .',
             'Er rannte aus der Tür und in den Garten .',
@@ -241,7 +249,14 @@ if __name__ == "__main__":
             'Das habe ich nicht so gemeint .',
             'Sie hat eine schöne Stimme .',
             'Das Wetter ist heute schön .',
-            'Liest du gerne Bücher ?']
+            'Liest du gerne Bücher ?',
+            'Ich liebe Programmierung .',
+            'Versuchen wir einen komplexeren Satz, der mehrere Klauseln und erweiterten Wortschatz verwendet .',
+            'Offensichtlich hat das Modell bei weniger gebräuchlichen Wörtern Schwierigkeiten.',
+            'Ich liebe dich.',
+            'Ich sehe ein Mädchen mit einer Katze .',
+            'Der schnelle braune Fuchs springt über den faulen Hund .',
+            'Kannst du mir bei meinen Hausaufgaben helfen ?',]
     preds, _ = model.generate(
         data.build(engs, des),
         torch.device('cpu'),
