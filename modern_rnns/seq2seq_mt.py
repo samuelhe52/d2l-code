@@ -42,12 +42,18 @@ class Seq2SeqDecoder(Decoder):
     def __init__(self, vocab_size: int, embed_size: int,
                  num_hiddens: int, num_layers: int, dropout: float = 0.0):
         super().__init__()
+        self._vocab_size = vocab_size
         self.embedding = nn.Embedding(vocab_size, embed_size)
         # Concatenate the context vector and the input embedding
         self.rnn = nn.GRU(embed_size + num_hiddens, num_hiddens,
                           num_layers, dropout=dropout, batch_first=False)
         # Dense layer to convert decoder output vectors to vocabulary space
         self.dense = nn.Linear(num_hiddens, vocab_size)
+        
+    @property
+    def vocab_size(self) -> int: 
+        """Return the size of the target vocabulary."""
+        return self._vocab_size
         
     def preprocess_state(self, enc_outputs, *args):
         outputs, hidden_state = enc_outputs
@@ -92,9 +98,11 @@ class Seq2Seq(EncoderDecoder):
     def __init__(self,
                  encoder: Seq2SeqEncoder, 
                  decoder: Seq2SeqDecoder,
-                 pad_token_index: int):
+                 pad_token_index: int,
+                 eos_token_index: int | None = None):
         super().__init__(encoder, decoder)
         self.pad_token_index = pad_token_index
+        self.eos_token_index = eos_token_index
         
 
 def masked_ce_loss(y_hat: Tensor, y: Tuple[Tensor, int]) -> Tensor:
@@ -171,7 +179,8 @@ if __name__ == "__main__":
     decoder = Seq2SeqDecoder(vocab_size=len(data.tgt_vocab), **shared)
     model = Seq2Seq(
         encoder=encoder, decoder=decoder,
-        pad_token_index=data.tgt_vocab['<pad>']
+        pad_token_index=data.tgt_vocab['<pad>'],
+        eos_token_index=data.tgt_vocab['<eos>'],
     )
     
     logger = TrainingLogger(
@@ -211,6 +220,9 @@ if __name__ == "__main__":
     preds, _ = model.generate(
         data.build(engs, des),
         torch.device('cpu'),
-        max_len=50)
+        max_len=50,
+        decode_strategy='beam',
+        beam_size=4)
     preds = preds.cpu().tolist()
+    
     eval_translations(srcs=engs, dsts=des, preds=preds, data=data)
