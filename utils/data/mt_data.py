@@ -11,8 +11,6 @@ from pathlib import Path
 import zipfile
 import shutil
 
-from utils.data import book_data
-
 from .vocab import Vocab
 
 class TatoebaDataset(Dataset):
@@ -431,7 +429,7 @@ def eval_translations(srcs: list[str],
     for en, de, p in zip(srcs, dsts, preds):
         translation = [t for t in data.tgt_vocab.to_tokens(p)]
         if '<eos>' in translation:
-            translation = translation[:translation.index('<eos>') + 1]
+            translation = translation[:translation.index('<eos>')]
         translation = [t for t in translation if t != '<pad>']
-        print(f'{en} => {translation}, bleu,'
-            f'{bleu(" ".join(translation[:-1]), de.lower(), k=bleu_k):.3f}')
+        print(f'{en} => {translation}, bleu: ' +
+            f'{bleu(" ".join(translation), de.lower(), k=bleu_k):.3f}')
