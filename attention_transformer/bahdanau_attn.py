@@ -2,7 +2,7 @@ import torch
 from torch import Tensor, nn
 import torch.nn.functional as F
 from typing import Optional, Tuple
-from utils.attn import AdditiveAttention
+from utils.attn import AdditiveAttention, DotProductAttention
 from utils.data.mt_data import GerEngDataset, eval_translations, mt_dataloader
 from utils.enc_dec import Encoder, Decoder, EncoderDecoder
 from utils.io import load_model
@@ -38,10 +38,11 @@ class BahdanauDecoder(Decoder):
         super().__init__()
         self._vocab_size = vocab_size
         self.embedding = nn.Embedding(vocab_size, embed_size)
-        self.attention = AdditiveAttention(
-            query_size=num_hiddens,
-            key_size=num_hiddens,
-            num_hiddens=num_hiddens, dropout=dropout)
+        # self.attention = AdditiveAttention(
+        #     query_size=num_hiddens,
+        #     key_size=num_hiddens,
+        #     num_hiddens=num_hiddens, dropout=dropout)
+        self.attention = DotProductAttention(dropout=dropout)
         self.rnn = nn.GRU(embed_size + num_hiddens, num_hiddens,
                           num_layers, dropout=dropout, batch_first=False)
         self.dense = nn.Linear(num_hiddens, vocab_size)
@@ -108,7 +109,7 @@ class Seq2Seq(EncoderDecoder):
 if __name__ == "__main__":
     hparams = {
         'seq_len': 25,
-        'batch_size': 128,
+        'batch_size': 256,
         'num_epochs': 15,
         'lr': 2e-3,
         'grad_clip': 1.0,
@@ -176,7 +177,7 @@ if __name__ == "__main__":
     trainer.train()
     logger.summary()
     
-    model: Seq2Seq = load_model('./models/seq2seq_mt_gereng',
+    model: Seq2Seq = load_model('./models/bahdanau_mt_gereng',
                                 model, device=torch.device('cpu'))
     engs, des = data.test_sentences
     preds, _ = model.generate(

@@ -153,6 +153,16 @@ class TatoebaDataset(Dataset):
     # Collapse runs of spaces left over from the translate step.
     _MULTI_SPACE_RE = re.compile(r' {2,}')
 
+    def _normalize_sentence(self, sentence: str) -> str:
+        """Apply the same normalization used during dataset preprocessing."""
+        return self._MULTI_SPACE_RE.sub(
+            ' ', sentence.translate(self._CLEAN_TABLE).lower()
+        ).strip()
+
+    def _tokenize_sentence(self, sentence: str) -> list[str]:
+        """Tokenize a normalized sentence exactly like dataset construction."""
+        return sentence.split(' ') + ['<eos>']
+
     def _preprocess(self, content: str, total_samples: Optional[int] = None) \
         -> tuple[list[str], list[str]]:
         """
@@ -171,15 +181,13 @@ class TatoebaDataset(Dataset):
         if total_samples is not None:
             lines = lines[:total_samples]
 
-        tr = self._CLEAN_TABLE
-        collapse = self._MULTI_SPACE_RE.sub
         src_sentences: list[str] = []
         tgt_sentences: list[str] = []
         for line in lines:
             parts = line.split('\t', maxsplit=2)
             if len(parts) >= 2:
-                s = collapse(' ', parts[0].translate(tr).lower()).strip()
-                t = collapse(' ', parts[1].translate(tr).lower()).strip()
+                s = self._normalize_sentence(parts[0])
+                t = self._normalize_sentence(parts[1])
                 src_sentences.append(s)
                 tgt_sentences.append(t)
         return src_sentences, tgt_sentences
@@ -265,14 +273,14 @@ class TatoebaDataset(Dataset):
             supplied sentences:
             ``((src_array, tgt_array, src_valid_len), label_array)``
         """
-        src_tokenized = [s.lower().strip().split(' ') + ['<eos>']
+        src_tokenized = [self._tokenize_sentence(self._normalize_sentence(s))
                          for s in src_sentences]
         src_array, src_valid_len = self._build_arrays(
             src_tokenized, self.src_vocab, is_tgt=False,
             return_valid_len=True)
 
         if tgt_sentences is not None:
-            tgt_tokenized = [s.lower().strip().split(' ') + ['<eos>']
+            tgt_tokenized = [self._tokenize_sentence(self._normalize_sentence(s))
                              for s in tgt_sentences]
             tgt_full = self._build_arrays(
                 tgt_tokenized, self.tgt_vocab, is_tgt=True)
@@ -337,43 +345,57 @@ class GerEngDataset(TatoebaDataset):
     def test_sentences(self) -> Tuple[list[str], list[str]]:
         """A small set of German-English sentence pairs for testing."""
         pairs = [
-            ('go .', 'geh .'),
-            ('i lost .', 'ich habe mich verirrt .'),
-            ('he\'s calm .', 'er ist ruhig .'),
-            ('i\'m home .', 'ich bin zu hause .'),
-            ('He ran out of the door and into the garden .',
-             'Er rannte aus der Tür und in den Garten .'),
-            ('There is little hope .', 'Es gibt wenig Hoffnung .'),
-            ('You should have hope .', 'Du solltest Hoffnung haben .'),
-            ('We are all lost .', 'Wir sind alle verloren .'),
-            ('I did not mean that .', 'Das habe ich nicht so gemeint .'),
-            ('She has a beautiful voice .', 'Sie hat eine schöne Stimme .'),
-            ('The weather is nice today .', 'Das Wetter ist heute schön .'),
-            ('Do you like reading books ?', 'Liest du gerne Bücher ?'),
-            ('I love programming .', 'Ich liebe Programmierung .'),
-            ('Let\'s try a more complex sentence which uses multiple clauses and advanced vocabulary .',
-             'Versuchen wir einen komplexeren Satz, der mehrere Klauseln und erweiterten Wortschatz verwendet .'),
-            ('Obviously, for less common words, the model struggles.',
-             'Offensichtlich hat das Modell bei weniger gebräuchlichen Wörtern Schwierigkeiten.'),
+            ('go.', 'geh.'),
+            ('i lost.', 'ich habe mich verirrt.'),
+            ('he\'s calm.', 'er ist ruhig.'),
+            ('i\'m home.', 'ich bin zu hause.'),
+            ('There is little hope.', 'Es gibt wenig Hoffnung.'),
+            ('You should have hope.', 'Du solltest Hoffnung haben.'),
+            ('We are all lost.', 'Wir sind alle verloren.'),
+            ('I did not mean that.', 'Das habe ich nicht so gemeint.'),
+            ('She has a beautiful voice.', 'Sie hat eine schöne Stimme.'),
+            ('The weather is nice today.', 'Das Wetter ist heute schön.'),
+            ('Do you like reading books?', 'Liest du gerne Bücher?'),
+            ('I love programming.', 'Ich liebe Programmierung.'),
             ('I love you.', 'Ich liebe dich.'),
-            ('I see a girl with a cat .',
-             'Ich sehe ein Mädchen mit einer Katze .'),
-            ('The quick brown fox jumps over the lazy dog .',
-             'Der schnelle braune Fuchs springt über den faulen Hund .'),
-            ('Can you help me with my homework ?',
-             'Kannst du mir bei meinen Hausaufgaben helfen ?'),
-            ('This is nonsense .', 'Das ist Unsinn .'),
-            ('We need to talk .', 'Wir müssen reden .'),
-            ('Stay here .', 'Bleib hier .'),
-            ('Follow me .', 'Folge mir .'),
-            ('I am learning German .', 'Ich lerne Deutsch .'),
-            ('What is your name ?', 'Wie heißt du ?'),
-            ('Where is the bathroom ?', 'Wo ist die Toilette ?'),
-            ('How much does this cost ?', 'Wie viel kostet das ?'),
-            ('I would like a coffee .', 'Ich möchte einen Kaffee .'),
-            ('Can you help me ?', 'Kannst du mir helfen ?'),
-            ('See you later .', 'Bis später .'),
-            ('Good morning .', 'Guten Morgen .'),
+            ('I see a girl with a cat.',
+             'Ich sehe ein Mädchen mit einer Katze.'),
+            ('Can you help me with my homework?',
+             'Kannst du mir bei meinen Hausaufgaben helfen?'),
+            ('This is nonsense.', 'Das ist Unsinn.'),
+            ('We need to talk.', 'Wir müssen reden.'),
+            ('Stay here.', 'Bleib hier.'),
+            ('Follow me.', 'Folge mir.'),
+            ('I am learning German.', 'Ich lerne Deutsch.'),
+            ('What is your name?', 'Wie heißt du?'),
+            ('Where is the bathroom?', 'Wo ist die Toilette?'),
+            ('How much does this cost?', 'Wie viel kostet das?'),
+            ('I would like a coffee.', 'Ich möchte einen Kaffee.'),
+            ('Can you help me?', 'Kannst du mir helfen?'),
+            ('See you later.', 'Bis später.'),
+            ('Good morning.', 'Guten Morgen.'),
+            ('My sister reads books in the quiet library.',
+            'Meine Schwester liest Bücher in der ruhigen Bibliothek.'),
+            ('He forgot his keys on the kitchen table.',
+            'Er hat seine Schlüssel auf dem Küchentisch vergessen.'),
+            ('Please close the window before you leave.',
+            'Bitte schließ das Fenster, bevor du gehst.'),
+            ('The train arrives at eight in the morning.',
+            'Der Zug kommt um acht Uhr morgens an.'),
+            ('We cooked dinner and washed the dishes.',
+            'Wir haben Abendessen gekocht und das Geschirr gespült.'),
+            ('They walked through the park after school.',
+            'Sie gingen nach der Schule durch den Park.'),
+            ('He ran out of the door and into the garden.',
+            'Er rannte aus der Tür und in den Garten.'),
+            ('The quick brown fox jumps over the lazy dog.',
+            'Der schnelle braune Fuchs springt über den faulen Hund.'),
+            ('Let\'s try a more complex sentence which uses multiple clauses and advanced vocabulary.',
+            'Versuchen wir einen komplexeren Satz, der mehrere Klauseln und erweiterten Wortschatz verwendet.'),
+            ('Obviously, for less common words, the model struggles.',
+            'Offensichtlich hat das Modell bei weniger gebräuchlichen Wörtern Schwierigkeiten.'),
+            ('The small boy with the bright blue hat ran quickly down the long, dusty road toward the old wooden house.',
+             'Der kleine Junge mit dem hellblauen Hut rannte schnell die lange, staubige Straße hinunter zum alten Holzhaus.'), 
         ]
         
         return [src for src, _ in pairs], [tgt for _, tgt in pairs]
@@ -431,5 +453,7 @@ def eval_translations(srcs: list[str],
         if '<eos>' in translation:
             translation = translation[:translation.index('<eos>')]
         translation = [t for t in translation if t != '<pad>']
+        pred_text = data._normalize_sentence(' '.join(translation))
+        ref_text = data._normalize_sentence(de)
         print(f'{en} => {translation}, bleu: ' +
-            f'{bleu(" ".join(translation), de.lower(), k=bleu_k):.3f}')
+            f'{bleu(pred_text, ref_text, k=bleu_k):.3f}')
