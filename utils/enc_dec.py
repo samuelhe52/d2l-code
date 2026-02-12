@@ -19,12 +19,6 @@ class Encoder(ABC, nn.Module):
         pass
 
 class Decoder(ABC, nn.Module):
-    @property
-    @abstractmethod
-    def vocab_size(self) -> int: 
-        """Return the size of the target vocabulary."""
-        return self._vocab_size
-    
     @abstractmethod
     def preprocess_state(self, enc_outputs: Tensor, *args) -> Any:
         """
@@ -116,24 +110,20 @@ class EncoderDecoder(nn.Module):
         dec_X: Tensor,
         dec_state: Any,
         decode_len: int,
-        save_attention_weights: bool,
-    ) -> Tuple[Tensor, list[Tensor]]:
+    ) -> Tensor:
         preds: list[Tensor] = []
-        attn_weights: list[Tensor] = []
 
         for _ in range(decode_len):
             Y, dec_state = self.decoder(dec_X, dec_state)
             pred = Y.argmax(dim=1).squeeze(1)
             preds.append(pred)
-            if save_attention_weights and hasattr(self.decoder, "attention_weights"):
-                attn_weights.append(self.decoder.attention_weights)
             dec_X = pred.unsqueeze(1)
 
         if preds:
             pred_seq = torch.stack(preds, dim=1)
         else:
             pred_seq = dec_X.new_empty((dec_X.shape[0], 0))
-        return pred_seq, attn_weights
+        return pred_seq
 
     def _beam_decode(
         self,
@@ -142,10 +132,9 @@ class EncoderDecoder(nn.Module):
         decode_len: int,
         beam_size: int,
         eos_token_index: Optional[int],
-        save_attention_weights: bool,
         device: torch.device,
         tgt_array: Tensor,
-    ) -> Tuple[Tensor, list[Tensor]]:
+    ) -> Tensor:
         batch_size = dec_X.shape[0]
         vocab_size = self.decoder.vocab_size
         beam_size = min(beam_size, vocab_size)
@@ -159,7 +148,6 @@ class EncoderDecoder(nn.Module):
             (batch_size, beam_size), dtype=torch.bool, device=device
         )
         seqs: Optional[Tensor] = None
-        attn_weights: list[Tensor] = []
 
         for _ in range(decode_len):
             Y, next_state = self.decoder(dec_X, dec_state)
@@ -207,14 +195,6 @@ class EncoderDecoder(nn.Module):
             dec_X = token_indices.reshape(-1, 1)
             scores = topk_scores
 
-            if save_attention_weights and hasattr(self.decoder, "attention_weights"):
-                attn_step = self.decoder.attention_weights
-                if torch.is_tensor(attn_step):
-                    attn_step = self._select_state(
-                        attn_step, flat_indices, batch_size * beam_size
-                    )
-                attn_weights.append(attn_step)
-
             if eos_token_index is not None and torch.all(finished):
                 break
 
@@ -241,16 +221,7 @@ class EncoderDecoder(nn.Module):
             )
             pred_seq = torch.cat([pred_seq, pad], dim=1)
 
-        if save_attention_weights and attn_weights:
-            attn_best: list[Tensor] = []
-            for attn in attn_weights:
-                if torch.is_tensor(attn) and attn.shape[0] == batch_size * beam_size:
-                    attn = attn.view(batch_size, beam_size, *attn.shape[1:])
-                    attn = attn[batch_idx, best_idx]
-                attn_best.append(attn)
-            attn_weights = attn_best
-
-        return pred_seq, attn_weights
+        return pred_seq
     
     def forward(self, enc_X: Tensor, dec_X: Tensor, *args) -> Tensor:
         """
@@ -273,7 +244,6 @@ class EncoderDecoder(nn.Module):
         batch: Tuple,
         device: torch.device,
         max_len: Optional[int] = None,
-        save_attention_weights: bool = False,
         decode_strategy: str = "beam",
         beam_size: int = 4,
     ) -> Tuple[Tensor, list[Tensor]]:
@@ -285,15 +255,12 @@ class EncoderDecoder(nn.Module):
                 ((src_array, tgt_array, src_valid_len), label_array).
             device: Device to run inference on.
             max_len: Optional max decoding length. Defaults to target length.
-            save_attention_weights: If True and the decoder exposes
-                `attention_weights`, returns them alongside predictions.
             decode_strategy: Decoding strategy to use ("greedy" or "beam").
             beam_size: Beam size for beam search decoding (if applicable).
 
         Returns:
-            Tuple of (predictions, attention_weights). If
-            `save_attention_weights` is False, attention weights will be
-            an empty list.
+            Tuple of (predictions, attention_weights). Attention weights are
+            currently not collected and are returned as an empty list.
         """
         was_training = self.training
         self.eval()
@@ -316,20 +283,18 @@ class EncoderDecoder(nn.Module):
             dec_state = self.decoder.preprocess_state(enc_outputs, src_valid_len)
 
             if decode_strategy == "greedy" or beam_size <= 1:
-                pred_seq, attn_weights = self._greedy_decode(
+                pred_seq = self._greedy_decode(
                     dec_X,
                     dec_state,
                     decode_len,
-                    save_attention_weights,
                 )
             else:
-                pred_seq, attn_weights = self._beam_decode(
+                pred_seq = self._beam_decode(
                     dec_X,
                     dec_state,
                     decode_len,
                     beam_size,
                     eos_token_index,
-                    save_attention_weights,
                     device,
                     tgt_array,
                 )
@@ -342,7 +307,4 @@ class EncoderDecoder(nn.Module):
             pred_seq = preds[0]
         else:
             pred_seq = torch.stack(preds, dim=1)
-        if not save_attention_weights:
-            attn_weights = []
         return pred_seq, attn_weights
-

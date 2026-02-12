@@ -1,22 +1,15 @@
 import torch
-from torch import nn, Tensor
-
-from utils.training import (
-    TrainingConfig,
-    TrainingLogger,
-    Seq2SeqTrainer
-)
-from utils.data.mt_data import (
-    FraEngDataset,
-    GerEngDataset,
-    mt_dataloader,
-    eval_translations,
-)
+from torch import Tensor, nn
+import torch.nn.functional as F
+from typing import Optional, Tuple
+from utils.attn import AdditiveAttention
+from utils.data.mt_data import GerEngDataset, eval_translations, mt_dataloader
 from utils.enc_dec import Encoder, Decoder, EncoderDecoder
 from utils.io import load_model
-from typing import Tuple
+from utils.training import TrainingLogger, TrainingConfig
+from utils.training import Seq2SeqTrainer
 
-class Seq2SeqEncoder(Encoder):
+class BahdanauEncoder(Encoder):
     """
     Sequence-to-Sequence Encoder, implemented using GRU.
     """
@@ -36,26 +29,28 @@ class Seq2SeqEncoder(Encoder):
         # state shape: (num_layers, batch_size, num_hiddens)
         return outputs, state
 
-
-class Seq2SeqDecoder(Decoder):
+class BahdanauDecoder(Decoder):
     """
-    Sequence-to-Sequence Decoder, implemented using GRU.
+    Sequence-to-Sequence Decoder with Bahdanau Attention, implemented using GRU.
     """
     def __init__(self, vocab_size: int, embed_size: int,
                  num_hiddens: int, num_layers: int, dropout: float = 0.0):
         super().__init__()
         self._vocab_size = vocab_size
         self.embedding = nn.Embedding(vocab_size, embed_size)
-        # Concatenate the context vector and the input embedding
+        self.attention = AdditiveAttention(
+            query_size=num_hiddens,
+            key_size=num_hiddens,
+            num_hiddens=num_hiddens, dropout=dropout)
         self.rnn = nn.GRU(embed_size + num_hiddens, num_hiddens,
                           num_layers, dropout=dropout, batch_first=False)
-        # Dense layer to convert decoder output vectors to vocabulary space
         self.dense = nn.Linear(num_hiddens, vocab_size)
         
     @property
     def vocab_size(self) -> int: 
         """Return the size of the target vocabulary."""
         return self._vocab_size
+    
         
     def preprocess_state(self, enc_outputs, *args):
         outputs, hidden_state = enc_outputs
@@ -68,45 +63,48 @@ class Seq2SeqDecoder(Decoder):
         # embs shape: (seq_len, batch_size, embed_size)
         # enc_outputs shape: (seq_len, batch_size, num_hiddens)
         enc_outputs, hidden_state, src_valid_len = state
-        # src_valid_len shape: (batch_size,)
-        if src_valid_len is None:
-            # Use -1 index to get the last output for all sequences
-            context = enc_outputs[-1] # Shape: (batch_size, num_hiddens)
-        else:
-            lengths = src_valid_len.to(torch.long).clamp_min(1) - 1
-            batch_idx = torch.arange(
-                enc_outputs.shape[1], device=enc_outputs.device
-            )
-            # Advanced indexing to get the last valid output for each sequence
-            context = enc_outputs[lengths, batch_idx]
-        # Shape: (batch_size, num_hiddens)
-        # Repeat the context vector for each time step
-        # Original context shape: (batch_size, num_hiddens)
-        # Repeated context shape: (seq_len, batch_size, num_hiddens)
-        context = context.repeat(embs.shape[0], 1, 1)
-        # Concatenate the context vector with the input embeddings
-        rnn_inputs = torch.cat((embs, context), dim=-1)
-        outputs, hidden_state = self.rnn(rnn_inputs, hidden_state)
-        # Raw outputs shape: (seq_len, batch_size, num_hiddens)
+        enc_kv = (
+            enc_outputs.permute(1, 0, 2)
+            if enc_outputs.shape[0] != hidden_state.shape[1]
+            else enc_outputs
+        )
+        # enc_kv shape: (batch_size, seq_len, num_hiddens)
+        outputs = []
+
+        for emb in embs:
+            # emb shape: (batch_size, embed_size)
+            # num_query = 1
+            query = hidden_state[-1].unsqueeze(1)  # Shape: (batch_size, 1, num_hiddens)
+            # enc_kv is both keys and values
+            context = self.attention(query, enc_kv, enc_kv, src_valid_len)
+            # context shape: (batch_size, 1, num_hiddens)
+            rnn_inputs = torch.cat((emb.unsqueeze(1), context), dim=-1).transpose(0, 1)
+            # rnn_inputs shape: (1, batch_size, embed_size + num_hiddens)
+            out, hidden_state = self.rnn(rnn_inputs, hidden_state)
+            # out shape: (1, batch_size, num_hiddens)
+            outputs.append(out.squeeze(0))
+
+        outputs = torch.stack(outputs, dim=0)
+        # outputs shape: (seq_len, batch_size, num_hiddens)
         outputs = self.dense(outputs).permute(1, 2, 0)
         # outputs shape: (batch_size, vocab_size, seq_len)
         return outputs, (enc_outputs, hidden_state, src_valid_len)
-
+    
 
 class Seq2Seq(EncoderDecoder):
     """
     Sequence-to-Sequence model.
     """
     def __init__(self,
-                 encoder: Seq2SeqEncoder, 
-                 decoder: Seq2SeqDecoder,
+                 encoder: BahdanauEncoder,
+                 decoder: BahdanauDecoder,
                  pad_token_index: int,
                  eos_token_index: int | None = None):
         super().__init__(encoder, decoder)
         self.pad_token_index = pad_token_index
         self.eos_token_index = eos_token_index
         
-    
+
 if __name__ == "__main__":
     hparams = {
         'seq_len': 25,
@@ -139,8 +137,8 @@ if __name__ == "__main__":
         'dropout': hparams['dropout'],
     }
     
-    encoder = Seq2SeqEncoder(vocab_size=len(data.src_vocab), **shared)
-    decoder = Seq2SeqDecoder(vocab_size=len(data.tgt_vocab), **shared)
+    encoder = BahdanauEncoder(vocab_size=len(data.src_vocab), **shared)
+    decoder = BahdanauDecoder(vocab_size=len(data.tgt_vocab), **shared)
     model = Seq2Seq(
         encoder=encoder, decoder=decoder,
         pad_token_index=data.tgt_vocab['<pad>'],
@@ -148,7 +146,7 @@ if __name__ == "__main__":
     )
     
     logger = TrainingLogger(
-        log_path='logs/seq2seq_mt_experiment_gereng.json',
+        log_path='logs/bahdanau_mt_gereng.json',
         hparams=hparams
     )
     
@@ -159,7 +157,7 @@ if __name__ == "__main__":
         lr=hparams['lr'],
         grad_clip=hparams['grad_clip'],
         optimizer=optim,
-        save_path='./models/seq2seq_mt_gereng',
+        save_path='./models/bahdanau_mt_gereng',
         logger=logger,
         device=torch.device('mps'),
     )
@@ -173,10 +171,10 @@ if __name__ == "__main__":
                 if "weight" in param:
                     nn.init.xavier_uniform_(m._parameters[param])
 
-    # model.apply(init_seq2seq)
-    # trainer = Seq2SeqTrainer(model, train_loader, val_loader, config)
-    # trainer.train()
-    # logger.summary()
+    model.apply(init_seq2seq)
+    trainer = Seq2SeqTrainer(model, train_loader, val_loader, config)
+    trainer.train()
+    logger.summary()
     
     model: Seq2Seq = load_model('./models/seq2seq_mt_gereng',
                                 model, device=torch.device('cpu'))

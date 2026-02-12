@@ -39,12 +39,14 @@ class DotProductAttention(nn.Module):
     Args:
         dropout: Dropout rate to apply on attention weights.
         optimized: Whether to use the optimized F.scaled_dot_product_attention.
+            When True, leverages PyTorch's built-in function for efficiency,
+            but attn_weights attribute will not be populated.
     """
     def __init__(self, dropout: float = 0.0, optimized: bool = True):
         super().__init__()
         self.optimized = optimized
         self.dropout = dropout
-        
+
     def forward(self, queries: Tensor, keys: Tensor, values: Tensor,
                 valid_lens: Tensor = None) -> Tensor:
         """
@@ -99,13 +101,18 @@ class AdditiveAttention(nn.Module):
     Single-Head Additive Attention mechanism.
 
     Args:
-        query_size: Size of the query vectors.
-        key_size: Size of the key vectors.
+        query_size: Feature size of each query vector.
+        key_size: Feature size of each key vector.
         num_hiddens: Number of hidden units in the attention mechanism.
         dropout: Dropout rate to apply on attention weights.
     """
-    def __init__(self, query_size: int, key_size: int,
-                 num_hiddens: int, dropout: float = 0.0):
+    def __init__(
+        self,
+        query_size: int,
+        key_size: int,
+        num_hiddens: int,
+        dropout: float = 0.0,
+    ):
         super().__init__()
         self.W_k = nn.Linear(key_size, num_hiddens, bias=False)
         self.W_q = nn.Linear(query_size, num_hiddens, bias=False)
