@@ -3,8 +3,6 @@ from torch import nn, Tensor
 from typing import Any, Tuple, Optional
 from abc import ABC, abstractmethod
 
-from .training.base import get_device
-
 class Encoder(ABC, nn.Module):
     @abstractmethod
     def forward(self, X: Tensor, *args) -> Tuple[Tensor, Tensor]:
@@ -264,7 +262,9 @@ class EncoderDecoder(nn.Module):
             Tuple of (predictions, attention_weights). Attention weights are
             currently not collected and are returned as an empty list.
         """
-        device = device or get_device()
+        if device is None:
+            from .training.base import get_device
+            device = get_device()
         was_training = self.training
         self.eval()
 

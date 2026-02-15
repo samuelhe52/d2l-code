@@ -389,7 +389,6 @@ if __name__ == "__main__":
         optimizer=optimizer,
         save_path='./models/transformer_mt_gereng',
         logger=logger,
-        device=torch.device('mps'),
     )
 
     def init_transformer(module: nn.Module) -> None:
