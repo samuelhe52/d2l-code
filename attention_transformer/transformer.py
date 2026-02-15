@@ -41,21 +41,15 @@ class PositionwiseFFN(nn.Module):
         return self.ffn(X)
     
     
-class AddNorm(nn.Module):
-    """
-    Add & Norm layer.
+class ResidualDropout(nn.Module):
+    """Residual connection with dropout: X + Dropout(Y)."""
 
-    Args:
-        normalized_shape: The shape of the input to be normalized.
-        dropout: Dropout rate.
-    """
-    def __init__(self, normalized_shape: int, dropout: float):
+    def __init__(self, dropout: float):
         super().__init__()
         self.dropout = nn.Dropout(dropout)
-        self.norm = nn.LayerNorm(normalized_shape)
 
     def forward(self, X: torch.Tensor, Y: torch.Tensor) -> torch.Tensor:
-        return self.norm(X + self.dropout(Y))
+        return X + self.dropout(Y)
     
 
 class TransformerEncoderLayer(nn.Module):
@@ -77,18 +71,23 @@ class TransformerEncoderLayer(nn.Module):
         self.attention = MultiheadAttentionWithValidLens(
             num_hiddens, num_heads, dropout, bias
         )
-        self.addnorm1 = AddNorm(num_hiddens, dropout)
+        self.norm1 = nn.LayerNorm(num_hiddens)
+        self.residual1 = ResidualDropout(dropout)
         self.ffn = PositionwiseFFN(num_hiddens, ffn_num_hiddens)
-        self.addnorm2 = AddNorm(num_hiddens, dropout)
+        self.norm2 = nn.LayerNorm(num_hiddens)
+        self.residual2 = ResidualDropout(dropout)
         
     
     def forward(self, X: torch.Tensor, valid_lens: torch.Tensor) \
         -> torch.Tensor:
         # nn.MultiheadAttention returns (attn_output, attn_weights), so we
         # explicitly take the first element for residual connection.
-        self_attn_out = self.attention(X, X, X, valid_lens)[0]
-        Y = self.addnorm1(X, self_attn_out)
-        return self.addnorm2(Y, self.ffn(Y))
+        X_norm = self.norm1(X)
+        self_attn_out = self.attention(X_norm, X_norm, X_norm, valid_lens)[0]
+        X = self.residual1(X, self_attn_out)
+
+        X_norm = self.norm2(X)
+        return self.residual2(X, self.ffn(X_norm))
     
     
 class TransformerEncoder(Encoder):
@@ -117,6 +116,7 @@ class TransformerEncoder(Encoder):
                 num_hiddens, ffn_num_hiddens, num_heads, dropout, bias
             ))
         self.layers = nn.ModuleList(layers)
+        self.final_norm = nn.LayerNorm(num_hiddens)
         
     def forward(self, X: torch.Tensor, valid_lens: torch.Tensor) \
         -> torch.Tensor:
@@ -124,7 +124,7 @@ class TransformerEncoder(Encoder):
         X = self.pos_encoding(self.embedding(X) * (self.num_hiddens ** 0.5))
         for layer in self.layers:
             X = layer(X, valid_lens)
-        return X
+        return self.final_norm(X)
     
 
 class TransformerDecoderLayer(nn.Module):
@@ -152,13 +152,16 @@ class TransformerDecoderLayer(nn.Module):
         self.attention1 = MultiheadAttentionWithValidLens(
             num_hiddens, num_heads, dropout, bias
         )
-        self.addnorm1 = AddNorm(num_hiddens, dropout)
+        self.norm1 = nn.LayerNorm(num_hiddens)
+        self.residual1 = ResidualDropout(dropout)
         self.attention2 = MultiheadAttentionWithValidLens(
             num_hiddens, num_heads, dropout, bias
         )
-        self.addnorm2 = AddNorm(num_hiddens, dropout)
+        self.norm2 = nn.LayerNorm(num_hiddens)
+        self.residual2 = ResidualDropout(dropout)
         self.ffn = PositionwiseFFN(num_hiddens, ffn_num_hiddens)
-        self.addnorm3 = AddNorm(num_hiddens, dropout)
+        self.norm3 = nn.LayerNorm(num_hiddens)
+        self.residual3 = ResidualDropout(dropout)
         
     def forward(
         self,
@@ -194,49 +197,47 @@ class TransformerDecoderLayer(nn.Module):
         #   attend over the full history. Note: nn.MultiheadAttention
         #   re-projects cached_hiddens through W_K / W_V every step.
         if hidden_cache is None:
-            cached_hiddens = X
+            raw_hiddens = X
             query_len = X.shape[1]
-            key_len = cached_hiddens.shape[1]
+            key_len = raw_hiddens.shape[1]
             causal_attn_mask = torch.triu(
                 torch.ones(query_len, key_len, device=X.device, dtype=torch.bool),
                 diagonal=1,
             )
             self_attn_valid_lens = dec_valid_lens
         else:
-            cached_hiddens = torch.cat([hidden_cache, X], dim=1)
+            raw_hiddens = torch.cat([hidden_cache, X], dim=1)
             # During incremental decoding, cached_hiddens only contains
             # past + current tokens, so no causal mask is needed.
             causal_attn_mask = None
             self_attn_valid_lens = None
 
+        cached_hiddens = self.norm1(raw_hiddens)
+
         # 1) Masked decoder self-attention.
+        X_norm = self.norm1(X)
         self_attn_out = self.attention1(
-            X,
+            X_norm,
             cached_hiddens,
             cached_hiddens,
             valid_lens=self_attn_valid_lens,
             attn_mask=causal_attn_mask,
             is_causal=False,
         )[0] # We only need the attention output
-        Y = self.addnorm1(
-            X,
-            self_attn_out,
-        )
+        X = self.residual1(X, self_attn_out)
         
         # 2) Encoder-decoder cross attention.
-        # Y serves as the query, and enc_outputs serve as the key and value.
+        # X serves as the query, and enc_outputs serve as the key and value.
         # Attends to encoder outputs here.
+        X_norm = self.norm2(X)
         cross_attn_out = self.attention2(
-            Y, enc_outputs, enc_outputs, enc_valid_lens
+            X_norm, enc_outputs, enc_outputs, enc_valid_lens
         )[0]
-        Z = self.addnorm2(
-            Y,
-            cross_attn_out,
-        )
+        X = self.residual2(X, cross_attn_out)
 
         # 3) Position-wise feed-forward network.
-        out = self.addnorm3(Z, self.ffn(Z))
-        return out, cached_hiddens
+        out = self.residual3(X, self.ffn(self.norm3(X)))
+        return out, raw_hiddens
 
 
 class TransformerDecoder(Decoder):
@@ -261,6 +262,7 @@ class TransformerDecoder(Decoder):
             )
             for _ in range(num_layers)
         ])
+        self.final_norm = nn.LayerNorm(num_hiddens)
         self.dense = nn.Linear(num_hiddens, vocab_size)
 
     @property
@@ -312,6 +314,7 @@ class TransformerDecoder(Decoder):
             )
             new_hidden_cache.append(updated_cache)
 
+        X = self.final_norm(X)
         logits = self.dense(X).permute(0, 2, 1)
         return logits, (enc_outputs, enc_valid_lens, new_hidden_cache)
 
