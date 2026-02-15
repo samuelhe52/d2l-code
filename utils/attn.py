@@ -299,9 +299,7 @@ class MultiheadAttentionWithValidLens(nn.Module):
             attn_mask = derived_attn_mask
 
         return self.mha(
-            query=query,
-            key=key,
-            value=value,
+            query, key, value,
             key_padding_mask=key_padding_mask,
             need_weights=need_weights,
             attn_mask=attn_mask,

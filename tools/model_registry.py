@@ -36,10 +36,10 @@ MODELS: Dict[str, Tuple[Path, str, Tuple[int, ...], Dict[str, Any]]] = {
         {
             "img_size": 96,
             "patch_size": 16,
-            "embed_dim": 256,
+            "embed_dim": 512,
             "num_heads": 8,
-            "mlp_hidden_dim": 512,
-            "num_blocks": 6,
+            "mlp_hidden_dim": 2048,
+            "num_blocks": 2,
             "num_classes": 10,
             "embed_dropout": 0.1,
             "blk_dropout": 0.1,

@@ -8,7 +8,6 @@ from utils.training import (
     TrainingConfig, TrainingLogger,
     ClassificationTrainer
 )
-from utils.io import load_model
 from utils.enc_dec import Encoder
 
 
@@ -143,10 +142,10 @@ if __name__ == "__main__":
         'lr': 1e-3,
         'img_size': 96,
         'patch_size': 16,
-        'embed_dim': 256,
+        'embed_dim': 512,
         'num_heads': 8,
-        'mlp_hidden_dim': 512,
-        'num_blocks': 6,
+        'mlp_hidden_dim': 2048,
+        'num_blocks': 2,
         'embed_dropout': 0.1,
         'blk_dropout': 0.1,
     }
