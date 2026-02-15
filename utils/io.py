@@ -6,6 +6,7 @@ from typing import Optional, Union
 
 import torch
 from torch.nn import Module
+from .training.base import get_device
 
 PathLike = Union[str, Path]
 
@@ -65,6 +66,7 @@ def load_model(load_path: PathLike, model: Module,
     Returns:
         The model with loaded parameters
     """
+    device = device or get_device()
     load_path = Path(load_path)
     if not load_path.exists():
         raise FileNotFoundError(f'No model found at {load_path}')

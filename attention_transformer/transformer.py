@@ -333,21 +333,21 @@ class TransformerSeq2Seq(EncoderDecoder):
 if __name__ == "__main__":
     hparams = {
         'seq_len': 25,
-        'batch_size': 128,
+        'batch_size': 256,
         'num_epochs': 20,
         'lr': 1e-3,
         'grad_clip': 1.0,
         'num_hiddens': 256,
         'ffn_num_hiddens': 512,
         'num_heads': 8,
-        'num_layers': 2,
-        'dropout': 0.2,
+        'num_layers': 4,
+        'dropout': 0.3,
         'bias': False,
     }
 
     data = GerEngDataset(
         seq_len=hparams['seq_len'],
-        token_min_freq=5,
+        token_min_freq=3,
         # total_samples=20000,
     )
     train_loader = mt_dataloader(
@@ -409,12 +409,10 @@ if __name__ == "__main__":
     model: TransformerSeq2Seq = load_model(
         './models/transformer_mt_gereng',
         model,
-        device=torch.device('cpu'),
     )
     engs, des = data.test_sentences
     preds, _ = model.generate(
         data.build(engs, des),
-        torch.device('cpu'),
         max_len=50,
         decode_strategy='beam',
         beam_size=4,
