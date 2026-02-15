@@ -242,7 +242,7 @@ class EncoderDecoder(nn.Module):
     def generate(
         self,
         batch: Tuple,
-        device: torch.device,
+        device: Optional[torch.device] = None,
         max_len: Optional[int] = None,
         decode_strategy: str = "beam",
         beam_size: int = 4,

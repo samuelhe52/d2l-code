@@ -335,16 +335,16 @@ class TransformerSeq2Seq(EncoderDecoder):
 
 if __name__ == "__main__":
     hparams = {
-        'seq_len': 25,
+        'seq_len': 30,
         'batch_size': 256,
-        'num_epochs': 20,
-        'lr': 1e-3,
+        'num_epochs': 40,
+        'lr': 5e-4,
         'grad_clip': 1.0,
-        'num_hiddens': 256,
-        'ffn_num_hiddens': 512,
+        'num_hiddens': 512,
+        'ffn_num_hiddens': 1024,
         'num_heads': 8,
-        'num_layers': 4,
-        'dropout': 0.3,
+        'num_layers': 6,
+        'dropout': 0.25,
         'bias': False,
     }
 
@@ -402,19 +402,21 @@ if __name__ == "__main__":
         elif isinstance(module, nn.Embedding):
             nn.init.xavier_uniform_(module.weight)
 
-    model.apply(init_transformer)
+    # model.apply(init_transformer)
 
-    trainer = Seq2SeqTrainer(model, train_loader, val_loader, config)
-    trainer.train()
-    logger.summary()
+    # trainer = Seq2SeqTrainer(model, train_loader, val_loader, config)
+    # trainer.train()
+    # logger.summary()
 
     model: TransformerSeq2Seq = load_model(
         './models/transformer_mt_gereng',
         model,
+        device=torch.device('cpu')
     )
     engs, des = data.test_sentences
     preds, _ = model.generate(
         data.build(engs, des),
+        device=torch.device('cpu'),
         max_len=50,
         decode_strategy='beam',
         beam_size=4,
