@@ -75,5 +75,6 @@ def load_model(load_path: PathLike, model: Module,
         load_path = _resolve_latest_model_path(load_path)
     state_dict = torch.load(load_path, weights_only=True, map_location=device)
     model.load_state_dict(state_dict)
+    model.to(device)
     print(f'Model loaded from {load_path}')
     return model

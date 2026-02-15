@@ -263,8 +263,9 @@ class EncoderDecoder(nn.Module):
             currently not collected and are returned as an empty list.
         """
         if device is None:
-            from .training.base import get_device
-            device = get_device()
+            device = next(self.parameters()).device
+        else:
+            self.to(device)
         was_training = self.training
         self.eval()
 

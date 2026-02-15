@@ -402,21 +402,19 @@ if __name__ == "__main__":
         elif isinstance(module, nn.Embedding):
             nn.init.xavier_uniform_(module.weight)
 
-    # model.apply(init_transformer)
+    model.apply(init_transformer)
 
-    # trainer = Seq2SeqTrainer(model, train_loader, val_loader, config)
-    # trainer.train()
-    # logger.summary()
+    trainer = Seq2SeqTrainer(model, train_loader, val_loader, config)
+    trainer.train()
+    logger.summary()
 
     model: TransformerSeq2Seq = load_model(
         './models/transformer_mt_gereng',
         model,
-        device=torch.device('cpu')
     )
     engs, des = data.test_sentences
     preds, _ = model.generate(
         data.build(engs, des),
-        device=torch.device('cpu'),
         max_len=50,
         decode_strategy='beam',
         beam_size=4,
