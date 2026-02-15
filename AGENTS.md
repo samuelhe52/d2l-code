@@ -29,10 +29,10 @@
 
 ## Build and Test
 
-- Environment: `conda activate d2l` (required for local torch setup in this workspace).
+- Environment: managed by `uv` (see `pyproject.toml`).  Activate with `uv run` or `. .venv/bin/activate`.
 - Run examples directly, e.g.:
-  - `python modern_rnns/seq2seq_mt.py`
-  - `python attention_transformer/bahdanau_attn.py`
+  - `uv run python modern_rnns/seq2seq_mt.py`
+  - `uv run python attention_transformer/bahdanau_attn.py`
 - Utility commands (Makefile):
   - `make dashboard` (serves dashboard on localhost)
   - `make summary model=<name>`

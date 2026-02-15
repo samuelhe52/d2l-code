@@ -29,4 +29,20 @@ MODELS: Dict[str, Tuple[Path, str, Tuple[int, ...], Dict[str, Any]]] = {
     "rnn_concise": (ROOT / "rnn" / "rnn_concise.py", "RNNConciseModel", (1, 48), {}),
     "lstm": (ROOT / "modern_rnns" / "lstm.py", "LSTMLM", (1, 48), {}),
     "gru": (ROOT / "modern_rnns" / "gru.py", "GRULM", (1, 48), {}),
+    "vit": (
+        ROOT / "attention_transformer" / "ViT.py",
+        "ViT",
+        (1, 1, 96, 96),
+        {
+            "img_size": 96,
+            "patch_size": 16,
+            "embed_dim": 256,
+            "num_heads": 8,
+            "mlp_hidden_dim": 512,
+            "num_blocks": 6,
+            "num_classes": 10,
+            "embed_dropout": 0.1,
+            "blk_dropout": 0.1,
+        },
+    ),
 }
