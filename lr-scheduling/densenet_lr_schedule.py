@@ -1,6 +1,10 @@
+# This is an adaptation of /modern_cnns/densenet.py, adding 
+# lr scheduling and momentum.
+
 import torch
 from torch import nn, Tensor
 from torch.nn import functional as F
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from utils.data import fashion_mnist
 from utils.training import (
     ClassificationTrainer,
@@ -142,9 +146,14 @@ if __name__ == "__main__":
     model.forward(torch.randn(1, 1, 96, 96))  # Initialize lazy layers
     model.apply(init_weights)
 
+    optim = torch.optim.SGD(model.parameters(), lr=lr)
+    lr_scheduler = CosineAnnealingLR(optim, T_max=8)
+
     config = TrainingConfig(
         num_epochs=num_epochs,
         lr=lr,
+        optimizer=optim,
+        lr_scheduler=lr_scheduler,
         save_path='models/densenet18.pt',
         logger=logger,
     )

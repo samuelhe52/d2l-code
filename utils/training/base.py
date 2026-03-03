@@ -7,6 +7,7 @@ from typing import Any, Iterable, Callable
 import torch
 from torch import nn, Tensor
 from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
 from tqdm import tqdm
 
 from ..io import save_model
@@ -62,6 +63,7 @@ class BaseTrainer(ABC):
         lr: float | None = None,
         loss_fn: nn.Module | None = None,
         optimizer: Optimizer | None = None,
+        lr_scheduler: LRScheduler | None = None,
         save_path: str | None = None,
         verbose: bool = True,
         logger: TrainingLogger | None = None,
@@ -80,6 +82,7 @@ class BaseTrainer(ABC):
             lr=lr,
             loss_fn=loss_fn,
             optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
             save_path=save_path,
             verbose=verbose,
             logger=logger,
@@ -91,11 +94,16 @@ class BaseTrainer(ABC):
         self.device = self.cfg.device or get_device()
         self.model.to(self.device)
 
-        # Setup loss and optimizer
+        # Setup loss, optimizer, and scheduler
         self.loss_fn = self.cfg.loss_fn or self.default_loss_fn
         self.optimizer = self.cfg.optimizer or torch.optim.SGD(
             self.model.parameters(), lr=self.cfg.lr
         )
+        # Error if lr_scheduler is provided without a custom optimizer
+        if self.cfg.lr_scheduler is not None and self.cfg.optimizer is None:
+            raise ValueError("lr_scheduler provided without a custom optimizer.")
+        self.lr_scheduler = self.cfg.lr_scheduler
+        self._is_plateau_scheduler = isinstance(self.lr_scheduler, ReduceLROnPlateau)
 
     @property
     @abstractmethod
@@ -224,6 +232,8 @@ class BaseTrainer(ABC):
                     loss.backward()
                     self.post_backward()
                     self.optimizer.step()
+                    if self.lr_scheduler is not None and self.cfg.scheduler_interval == 'batch':
+                        self.lr_scheduler.step()
 
                     metrics = self.compute_metrics(y_hat, y, loss.item())
                     batch_metrics.append(metrics)
@@ -238,6 +248,23 @@ class BaseTrainer(ABC):
                 val_metrics: dict[str, float] | None = None
                 if self.val_dataloader is not None:
                     val_metrics = self.validate()
+
+                # Step epoch-level / metric-based LR scheduler
+                if self.lr_scheduler is not None and self.cfg.scheduler_interval == 'epoch':
+                    if self._is_plateau_scheduler:
+                        metric_key = self.cfg.scheduler_metric or (
+                            'val_loss' if val_metrics and 'val_loss' in val_metrics else 'loss'
+                        )
+                        epoch_metrics = {**train_metrics, **(val_metrics or {})}
+                        if metric_key in epoch_metrics:
+                            self.lr_scheduler.step(epoch_metrics[metric_key])
+                        else:
+                            raise KeyError(
+                                f"scheduler_metric '{metric_key}' not found in epoch metrics "
+                                f"{list(epoch_metrics.keys())}"
+                            )
+                    else:
+                        self.lr_scheduler.step()
 
                 # Update epoch progress bar
                 if val_metrics is not None:

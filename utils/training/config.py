@@ -5,6 +5,7 @@ from typing import Any, Callable, Optional, TYPE_CHECKING
 
 import torch
 from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 
 if TYPE_CHECKING:
     from .logger import TrainingLogger
@@ -21,6 +22,13 @@ class TrainingConfig:
     lr: Optional[float] = None
     loss_fn: Optional[Callable[..., torch.Tensor]] = None
     optimizer: Optional[Optimizer] = None
+    lr_scheduler: Optional[LRScheduler] = None  # Subclass of torch.optim.lr_scheduler.LRScheduler
+    # 'batch': step every optimizer update (e.g. OneCycleLR)
+    # 'epoch': step once per epoch (e.g. StepLR, CosineAnnealingLR, ReduceLROnPlateau)
+    scheduler_interval: str = 'epoch'
+    # Key in epoch metrics to pass to ReduceLROnPlateau.step(metric).
+    # Defaults to 'val_loss' when a val_dataloader is present, else 'loss'.
+    scheduler_metric: Optional[str] = None
     save_path: Optional[str] = None
     verbose: bool = True
     logger: Optional["TrainingLogger"] = None
