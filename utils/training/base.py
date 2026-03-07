@@ -66,6 +66,7 @@ class BaseTrainer(ABC):
         lr_scheduler: LRScheduler | None = None,
         save_path: str | None = None,
         verbose: bool = True,
+        silence: bool = False,
         logger: TrainingLogger | None = None,
         device: torch.device | None = None,
         **kwargs: Any,
@@ -74,6 +75,7 @@ class BaseTrainer(ABC):
         self.dataloader = dataloader
         self.val_dataloader = val_dataloader
         self.interrupted = False
+        self.current_epoch = 0
 
         # Resolve config with overrides
         self.cfg = resolve_training_config(
@@ -85,6 +87,7 @@ class BaseTrainer(ABC):
             lr_scheduler=lr_scheduler,
             save_path=save_path,
             verbose=verbose,
+            silence=silence,
             logger=logger,
             device=device,
             **kwargs,
@@ -208,20 +211,30 @@ class BaseTrainer(ABC):
         Returns:
             Final epoch metrics as a dict, or None.
         """
-        epoch_pbar = tqdm(range(self.cfg.num_epochs), desc="Training", unit="epoch")
+        use_epoch_pbar = not self.cfg.silence
+        use_batch_pbar = self.cfg.verbose and not self.cfg.silence
+        epoch_iter = range(self.cfg.num_epochs)
+        epoch_pbar = tqdm(
+            epoch_iter,
+            desc="Training",
+            unit="epoch",
+            disable=not use_epoch_pbar,
+        )
         final_metrics: dict[str, float] | None = None
         self.interrupted = False
 
         try:
             for epoch in epoch_pbar:
+                self.current_epoch = epoch + 1
                 # Training phase
                 self.model.train()
                 batch_metrics: list[dict[str, float]] = []
 
                 batch_pbar = tqdm(
                     self.dataloader,
-                    desc=f"Epoch {epoch + 1}/{self.cfg.num_epochs}",
+                    desc=f"Epoch {self.current_epoch}/{self.cfg.num_epochs}",
                     leave=False,
+                    disable=not use_batch_pbar,
                 )
 
                 for X, y in batch_pbar:
@@ -239,7 +252,8 @@ class BaseTrainer(ABC):
                     batch_metrics.append(metrics)
 
                     # Update batch progress bar
-                    batch_pbar.set_postfix(self.format_train_metrics(metrics))
+                    if use_batch_pbar:
+                        batch_pbar.set_postfix(self.format_train_metrics(metrics))
 
                 # Aggregate training metrics
                 train_metrics = self._aggregate_metrics(batch_metrics)
@@ -268,16 +282,21 @@ class BaseTrainer(ABC):
 
                 # Update epoch progress bar
                 if val_metrics is not None:
-                    epoch_pbar.set_postfix(self.format_val_metrics(train_metrics, val_metrics))
+                    if use_epoch_pbar:
+                        epoch_pbar.set_postfix(self.format_val_metrics(train_metrics, val_metrics))
                 else:
-                    epoch_pbar.set_postfix(self.format_train_metrics(train_metrics))
+                    if use_epoch_pbar:
+                        epoch_pbar.set_postfix(self.format_train_metrics(train_metrics))
 
                 # Verbose output
-                if self.cfg.verbose:
+                if self.cfg.verbose and not self.cfg.silence:
                     msg = self.format_epoch_message(
-                        epoch + 1, self.cfg.num_epochs, train_metrics, val_metrics
+                        self.current_epoch, self.cfg.num_epochs, train_metrics, val_metrics
                     )
-                    tqdm.write(msg)
+                    if use_epoch_pbar:
+                        tqdm.write(msg)
+                    else:
+                        print(msg)
 
                 # Logging
                 if self.cfg.logger is not None:
@@ -287,7 +306,8 @@ class BaseTrainer(ABC):
                 final_metrics = {**train_metrics, **(val_metrics or {})}
         except KeyboardInterrupt:
             self.interrupted = True
-            tqdm.write("Training interrupted.")
+            if not self.cfg.silence:
+                tqdm.write("Training interrupted.")
         finally:
             epoch_pbar.close()
 

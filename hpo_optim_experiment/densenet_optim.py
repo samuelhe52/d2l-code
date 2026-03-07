@@ -5,9 +5,10 @@ import optuna
 import torch
 from torch import nn
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from pruning_trainer import PruningTrainer
 
 from utils.data import fashion_mnist
-from utils.training import ClassificationTrainer, TrainingConfig
+from utils.training import TrainingConfig
 
 # Path hack to allow importing from modern_cnns
 sys.path.append(str(Path(__file__).parent.parent))
@@ -43,7 +44,14 @@ def objective(trial: optuna.Trial) -> float:
         lr_scheduler=lr_scheduler,
     )
 
-    trainer = ClassificationTrainer(model, dataloader, val_dataloader, config)
+    trainer = PruningTrainer(
+        model,
+        dataloader,
+        val_dataloader,
+        config,
+        trial=trial,
+        silence=True,
+    )
     trainer.train()
 
     return trainer.validate().get("val_acc", 0.0)

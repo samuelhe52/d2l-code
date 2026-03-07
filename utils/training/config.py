@@ -31,6 +31,7 @@ class TrainingConfig:
     scheduler_metric: Optional[str] = None
     save_path: Optional[str] = None
     verbose: bool = True
+    silence: bool = False
     logger: Optional["TrainingLogger"] = None
     device: Optional[torch.device] = None
     grad_clip: Optional[float] = None  # Max norm for gradient clipping
