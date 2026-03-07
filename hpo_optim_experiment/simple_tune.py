@@ -11,8 +11,7 @@ from typing import Any
 import ray
 import torch
 from ray import tune
-from ray.air import RunConfig
-from ray.tune import ResultGrid
+from ray.tune import ResultGrid, RunConfig
 from ray.tune.schedulers import ASHAScheduler
 from torch import nn
 from torch.optim import Optimizer
@@ -204,12 +203,11 @@ def run_tune_experiment(
         cpus_per_trial=cpus_per_trial,
         cuda_virtual_jobs=cuda_virtual_jobs,
     )
+    effective_grace_period = max(1, min(grace_period, num_epochs))
     scheduler = ASHAScheduler(
         time_attr="training_iteration",
-        metric=metric,
-        mode=mode,
         max_t=num_epochs,
-        grace_period=grace_period,
+        grace_period=effective_grace_period,
         reduction_factor=reduction_factor,
     )
     tuner = tune.Tuner(
