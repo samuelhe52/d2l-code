@@ -56,6 +56,8 @@ SHOW_PROGRESS = True
 VERBOSE_TRAINER = False
 TORCH_NUM_THREADS = 1
 TORCH_NUM_INTEROP_THREADS = 1
+SEARCH_ALGORITHM = "optuna"
+SEARCH_SEED = 42
 
 SEARCH_SPACE = {
     "batch_size": tune.choice(list(range(32, 129, 32))),
@@ -134,6 +136,8 @@ def main() -> None:
         device=device,
         cpus_per_trial=CPUS_PER_TRIAL,
         cuda_virtual_jobs=CUDA_VIRTUAL_JOBS,
+        search_algorithm=SEARCH_ALGORITHM,
+        search_seed=SEARCH_SEED,
         max_concurrent_trials=MAX_CONCURRENT_TRIALS,
         ray_address=RAY_ADDRESS,
         ray_num_cpus=RAY_NUM_CPUS,

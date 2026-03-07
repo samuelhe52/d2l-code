@@ -12,6 +12,7 @@ import ray
 import torch
 from ray import tune
 from ray.tune import ResultGrid, RunConfig
+from ray.tune.search import SearchAlgorithm
 from ray.tune.schedulers import ASHAScheduler
 from torch import nn
 from torch.optim import Optimizer
@@ -171,6 +172,26 @@ def print_best_result(results: ResultGrid, *, metric: str, mode: str) -> None:
         print(f"    {key}: {value}")
 
 
+def build_search_algorithm(
+    *,
+    search_algorithm: str | SearchAlgorithm | None,
+    metric: str,
+    mode: str,
+    seed: int = 42,
+) -> SearchAlgorithm | None:
+    if search_algorithm is None:
+        return None
+    if not isinstance(search_algorithm, str):
+        return search_algorithm
+    if search_algorithm == "basic":
+        return None
+    if search_algorithm == "optuna":
+        from ray.tune.search.optuna import OptunaSearch
+
+        return OptunaSearch(metric=metric, mode=mode, seed=seed)
+    raise ValueError(f"Unsupported search algorithm: {search_algorithm}")
+
+
 def run_tune_experiment(
     *,
     experiment_name: str,
@@ -184,6 +205,8 @@ def run_tune_experiment(
     device: torch.device,
     cpus_per_trial: float,
     cuda_virtual_jobs: int,
+    search_algorithm: str | SearchAlgorithm | None = "optuna",
+    search_seed: int = 42,
     grace_period: int = 3,
     reduction_factor: int = 3,
     max_concurrent_trials: int | None = None,
@@ -210,6 +233,12 @@ def run_tune_experiment(
         grace_period=effective_grace_period,
         reduction_factor=reduction_factor,
     )
+    search_alg = build_search_algorithm(
+        search_algorithm=search_algorithm,
+        metric=metric,
+        mode=mode,
+        seed=search_seed,
+    )
     tuner = tune.Tuner(
         tune.with_resources(trainable, resources),
         param_space=search_space,
@@ -217,6 +246,7 @@ def run_tune_experiment(
             metric=metric,
             mode=mode,
             num_samples=num_samples,
+            search_alg=search_alg,
             scheduler=scheduler,
             max_concurrent_trials=max_concurrent_trials,
         ),
