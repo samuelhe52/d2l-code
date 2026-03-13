@@ -17,7 +17,8 @@ dependencies = [
     "torchinfo>=1.8",
     "ptflops>=0.7",
     "optuna>=4.7.0",
-    "ray[tune]>=2.40",
+    "ray[tune]>=2",
+    "recbole>=1.2.0",
 ]
 
 [project.optional-dependencies]

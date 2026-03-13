@@ -48,8 +48,13 @@ class DotProductAttention(nn.Module):
         self.optimized = optimized
         self.dropout = dropout
 
-    def forward(self, queries: Tensor, keys: Tensor, values: Tensor,
-                valid_lens: Tensor = None) -> Tensor:
+    def forward(
+        self,
+        queries: Tensor,
+        keys: Tensor,
+        values: Tensor,
+        valid_lens: Optional[Tensor] = None,
+    ) -> Tensor:
         """
         Compute the attention output.
         
@@ -95,9 +100,6 @@ class DotProductAttention(nn.Module):
             attn_weights = F.softmax(scores, dim=-1)
             attn_weights = F.dropout(attn_weights, p=self.dropout, training=self.training)
             return torch.bmm(attn_weights, values)
-    
-    
-
 
 class AdditiveAttention(nn.Module):
     """
