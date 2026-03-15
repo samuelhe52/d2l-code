@@ -7,7 +7,7 @@ dependencies = [
     "torch>=2.6",
     "torchvision>=0.21",
     "torchaudio>=2.6",
-    "numpy>=2.0",
+    "numpy>=2",
     "matplotlib>=3.9",
     "pandas>=2.2",
     "scipy>=1.14",
@@ -18,7 +18,6 @@ dependencies = [
     "ptflops>=0.7",
     "optuna>=4.7.0",
     "ray[tune]>=2",
-    "recbole>=1.2.0",
 ]
 
 [project.optional-dependencies]

@@ -1,4 +1,4 @@
-.PHONY: dashboard summary flops
+.PHONY: dashboard summary flops recsys-setup recsys-neumf
 
 help:
 	@echo "Available targets:"
